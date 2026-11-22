@@ -1,1 +1,34 @@
-LyogPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09CiAgIOWFrOW8j+OCt+ODvOODiO+8iGNhbnZhc+aWueW8j++8ieeUqOOCueOCv+OCpOODqwogICDmp5jlvI/jgZ3jga7jgoLjga7jga8gSkJB5YWs5byPUERG44Gu55S75YOP77yIZm9ybV9pbWFnZS5qc++8ieOBp+OBguOCiuOAgQogICDoqJjlhaXjga8gYXBwLmpzIOOBjCBjYW52YXMg5LiK44Gr6YeN44Gt5o+P44GN44GZ44KL44CCCiAgIOaXp+adpeOBriBIVE1ML0NTUyDjgavjgojjgovmp5jlvI/lho3nj77jgrnjgr/jgqTjg6vjga/lu4PmraLjgZfjgZ/jgIIKICAgPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09ICovCgovKiDnlLvpnaLooajnpLrvvJpjYW52YXMg44KS5qiq5bmF44GE44Gj44Gx44GE44Gr77yI5YaF6YOo6Kej5YOP5bqmIDI0ODF4MzUwOSDjga/ntq3mjIHvvIkgKi8KI3NoZWV0Q2FudmFzIHsKICB3aWR0aDogMTAwJTsKICBoZWlnaHQ6IGF1dG87CiAgZGlzcGxheTogYmxvY2s7CiAgYmFja2dyb3VuZDogI2ZmZjsKfQoKLyog5Y2w5Yi35bCC55So44OT44Ol44O844Gv55S76Z2i44Gn44Gv6Z2e6KGo56S6ICovCiNwcmludFJvb3QgeyBkaXNwbGF5OiBub25lOyB9CgovKiAtLS0tLS0tLS0tIOWNsOWItyAtLS0tLS0tLS0tICovCkBwYWdlIHsgc2l6ZTogQTQgcG9ydHJhaXQ7IG1hcmdpbjogMDsgfQpAbWVkaWEgcHJpbnQgewogICNwcmludFJvb3QgewogICAgZGlzcGxheTogYmxvY2sgIWltcG9ydGFudDsKICAgIG1hcmdpbjogMDsKICAgIHBhZGRpbmc6IDA7CiAgfQogICNwcmludFJvb3QgaW1nIHsKICAgIHdpZHRoOiAxMDAlOwogICAgaGVpZ2h0OiBhdXRvOwogICAgZGlzcGxheTogYmxvY2s7CiAgICAtd2Via2l0LXByaW50LWNvbG9yLWFkanVzdDogZXhhY3Q7CiAgICBwcmludC1jb2xvci1hZGp1c3Q6IGV4YWN0OwogIH0KfQo=
+/* ============================================================
+   公式シート（canvas方式）用スタイル
+   様式そのものは JBA公式PDFの画像（form_image.js）であり、
+   記入は app.js が canvas 上に重ね描きする。
+   旧来の HTML/CSS による様式再現スタイルは廃止した。
+   ============================================================ */
+
+/* 画面表示：canvas を横幅いっぱいに（内部解像度 2481x3509 は維持） */
+#sheetCanvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #fff;
+}
+
+/* 印刷専用ビューは画面では非表示 */
+#printRoot { display: none; }
+
+/* ---------- 印刷 ---------- */
+@page { size: A4 portrait; margin: 0; }
+@media print {
+  #printRoot {
+    display: block !important;
+    margin: 0;
+    padding: 0;
+  }
+  #printRoot img {
+    width: 100%;
+    height: auto;
+    display: block;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
