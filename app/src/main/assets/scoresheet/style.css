@@ -1,0 +1,113 @@
+/* 入力 UI 用スタイル（公式シート本体は sheet.css） */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  background: #f4f6f8;
+  color: #222;
+  font-size: 15px;
+}
+#appbar {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #e65100; color: #fff; padding: 8px 12px;
+  position: sticky; top: 0; z-index: 20;
+}
+#appbar h1 { font-size: 17px; margin: 0; }
+.appbar-actions button {
+  background: #fff; color: #e65100; border: none; border-radius: 6px;
+  padding: 7px 10px; font-size: 13px; font-weight: bold; margin-left: 6px;
+}
+#tabs {
+  display: flex; background: #fff; border-bottom: 2px solid #e65100;
+  position: sticky; top: 45px; z-index: 19;
+}
+#tabs button {
+  flex: 1; padding: 11px 2px; background: none; border: none;
+  font-size: 14px; color: #666; border-bottom: 3px solid transparent;
+}
+#tabs button.active { color: #e65100; font-weight: bold; border-bottom-color: #e65100; }
+main { padding: 12px; max-width: 900px; margin: 0 auto; }
+.tabpage { display: none; }
+.tabpage.active { display: block; }
+h2 { font-size: 16px; border-left: 5px solid #e65100; padding-left: 8px; margin: 18px 0 10px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-grid label { display: flex; flex-direction: column; font-size: 12px; color: #555; gap: 4px; }
+.form-grid input[type="text"], .form-grid input[type="date"], .form-grid input[type="time"] {
+  padding: 9px; font-size: 15px; border: 1px solid #bbb; border-radius: 6px; color: #222;
+}
+.form-grid label.check { flex-direction: row; align-items: center; font-size: 14px; color: #222; }
+.danger-zone { margin-top: 28px; }
+button.danger { background: #c62828; color: #fff; border: none; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
+.hint { font-size: 12px; color: #777; }
+
+/* 選手登録 */
+.team-editor { background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.team-editor h3 { margin: 0 0 10px; font-size: 16px; }
+.team-editor .row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.team-editor input { padding: 8px; border: 1px solid #bbb; border-radius: 6px; font-size: 14px; }
+.team-editor .tname { flex: 2; min-width: 140px; }
+.team-editor .tcolor { flex: 1; min-width: 80px; }
+table.roster { width: 100%; border-collapse: collapse; }
+table.roster th, table.roster td { border: 1px solid #ddd; padding: 3px; font-size: 12px; text-align: center; }
+table.roster input { width: 100%; border: none; padding: 6px 2px; font-size: 14px; background: transparent; }
+table.roster input.no { text-align: center; }
+table.roster input.lic { text-align: center; }
+.coach-rows { margin-top: 8px; display: grid; gap: 6px; }
+.coach-rows .row label { font-size: 12px; color: #555; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* 記録 */
+.quarter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.qbtns button {
+  padding: 8px 14px; border: 1px solid #e65100; background: #fff; color: #e65100;
+  border-radius: 20px; font-size: 14px; margin-right: 4px;
+}
+.qbtns button.active { background: #e65100; color: #fff; font-weight: bold; }
+.team-panel { background: #fff; border-radius: 8px; padding: 10px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.team-panel header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+.team-panel h3 { margin: 0; font-size: 16px; }
+.team-panel .score-now { font-size: 20px; font-weight: bold; color: #e65100; }
+.team-panel .panel-btns button {
+  border: 1px solid #888; background: #fff; border-radius: 6px; padding: 7px 9px; font-size: 12px; margin-left: 4px;
+}
+.to-chips { font-size: 12px; color: #555; margin: 6px 0; }
+.to-chips .chip { background: #eef; border-radius: 10px; padding: 2px 8px; margin-right: 4px; display: inline-block; }
+.to-chips .chip b { color: #c62828; margin-left: 3px; }
+table.record { width: 100%; border-collapse: collapse; margin-top: 6px; }
+table.record th, table.record td { border-bottom: 1px solid #eee; padding: 5px 3px; font-size: 13px; text-align: center; }
+table.record td.pname { text-align: left; }
+table.record .pno { font-weight: bold; }
+table.record button {
+  border: none; border-radius: 6px; padding: 8px 9px; font-size: 13px; font-weight: bold;
+  background: #e3f2fd; color: #1565c0;
+}
+table.record button.pts { background: #e65100; color: #fff; min-width: 40px; }
+table.record button.foul { background: #fff3e0; color: #c62828; border: 1px solid #ef9a9a; }
+table.record button.play { background: #f1f8e9; color: #33691e; border: 1px solid #aed581; min-width: 44px; }
+table.record button.play.on { background: #33691e; color: #fff; }
+table.record .foulcount { color: #c62828; font-size: 12px; }
+table.record tr.out { opacity: .45; }
+
+/* モーダル */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal.hidden { display: none; }
+.modal-box { background: #fff; border-radius: 10px; padding: 18px; width: 88%; max-width: 360px; }
+.modal-box h3 { margin: 0 0 12px; font-size: 16px; }
+.foul-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.foul-types button { padding: 12px 4px; font-size: 16px; font-weight: bold; border: 1px solid #c62828; color: #c62828; background: #fff; border-radius: 8px; }
+.modal-box .cancel { width: 100%; padding: 10px; border: 1px solid #999; background: #fff; border-radius: 8px; font-size: 14px; }
+.modal-box input[type="number"] { width: 100%; padding: 10px; font-size: 17px; border: 1px solid #bbb; border-radius: 6px; margin: 6px 0 12px; }
+.modal-row { display: flex; gap: 8px; }
+.modal-row button { flex: 1; padding: 11px; border-radius: 8px; font-size: 14px; }
+.modal-row #toSave { background: #e65100; color: #fff; border: none; font-weight: bold; }
+.sheet-actions { margin-bottom: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sheet-actions button { background: #e65100; color: #fff; border: none; padding: 11px 16px; border-radius: 8px; font-size: 15px; font-weight: bold; }
+.sheet-scroll { overflow-x: auto; background: #888; padding: 10px; border-radius: 8px; }
+
+@media print {
+  .noprint, #appbar, #tabs, .sheet-actions { display: none !important; }
+  body { background: #fff; }
+  main { padding: 0; max-width: none; }
+  .tabpage { display: none !important; }
+  #tab-sheet { display: block !important; }
+  .sheet-scroll { overflow: visible; background: #fff; padding: 0; }
+}
