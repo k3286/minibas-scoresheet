@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>ミニバス スコアシート</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+
+<header id="appbar" class="noprint">
+  <h1>🏀 ミニバス スコアシート</h1>
+  <div class="appbar-actions">
+    <button id="btnUndo" type="button">↩ 元に戻す</button>
+    <button id="btnPrintTop" type="button">🖨 印刷</button>
+  </div>
+</header>
+
+<nav id="tabs" class="noprint">
+  <button type="button" data-tab="info" class="active">試合情報</button>
+  <button type="button" data-tab="roster">選手登録</button>
+  <button type="button" data-tab="record">記録</button>
+  <button type="button" data-tab="sheet">公式シート</button>
+</nav>
+
+<main>
+  <!-- ===== 試合情報 ===== -->
+  <section id="tab-info" class="tabpage active">
+    <h2>試合情報</h2>
+    <div class="form-grid">
+      <label>大会名 <input type="text" id="gTournament" placeholder="例）第○回 ミニバスケットボール大会"></label>
+      <label>日付 <input type="date" id="gDate"></label>
+      <label>開始時間 <input type="time" id="gTime"></label>
+      <label>会場 <input type="text" id="gVenue"></label>
+      <label>試合No.（Game No.） <input type="text" id="gGameNo" placeholder="例）2"></label>
+      <label>試合終了時間 <input type="time" id="gEndTime"></label>
+    </div>
+    <h2>審判・TO</h2>
+    <div class="form-grid">
+      <label>クルーチーフ <input type="text" id="gCrewChief"></label>
+      <label>アンパイア <input type="text" id="gUmpire"></label>
+      <label>スコアラー <input type="text" id="gScorer"></label>
+      <label>タイマー <input type="text" id="gTimer"></label>
+      <label>A・スコアラー <input type="text" id="gAScorer"></label>
+      <label>ショットクロックオペレイター <input type="text" id="gShotClock"></label>
+    </div>
+    <h2>ルール設定</h2>
+    <div class="form-grid">
+      <label class="check"><input type="checkbox" id="gUse3pt"> 3ポイントを採用する</label>
+      <label class="check"><input type="checkbox" id="gFinished"> 試合終了（最終スコアを確定）</label>
+    </div>
+    <div class="danger-zone">
+      <button id="btnNewGame" type="button" class="danger">新しい試合（全データを消去）</button>
+    </div>
+  </section>
+
+  <!-- ===== 選手登録 ===== -->
+  <section id="tab-roster" class="tabpage">
+    <div id="rosterEditors"></div>
+  </section>
+
+  <!-- ===== 記録 ===== -->
+  <section id="tab-record" class="tabpage">
+    <div class="quarter-bar">
+      <span>記録するクォーター：</span>
+      <div class="qbtns" id="quarterBtns">
+        <button type="button" data-q="1" class="active">Q1</button>
+        <button type="button" data-q="2">Q2</button>
+        <button type="button" data-q="3">Q3</button>
+        <button type="button" data-q="4">Q4</button>
+        <button type="button" data-q="OT">OT</button>
+      </div>
+    </div>
+    <p class="hint">出場ボタンはタップで切り替わります（未出場 → ／先発 → ＼途中出場）。得点した選手は自動で出場扱いになります。</p>
+    <div id="recordPanels"></div>
+  </section>
+
+  <!-- ===== 公式シート ===== -->
+  <section id="tab-sheet" class="tabpage">
+    <div class="sheet-actions noprint">
+      <button id="btnPrint" type="button">🖨 A4で印刷する</button>
+      <span class="hint">印刷すると公式シートだけがA4縦1枚で出力されます。</span>
+    </div>
+    <div class="sheet-scroll">
+      <div id="sheetRoot"></div>
+    </div>
+  </section>
+</main>
+
+<!-- ファウル種別ピッカー -->
+<div id="foulModal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="foulModalTitle">ファウルの種別</h3>
+    <div id="foulTypeBtns" class="foul-types"></div>
+    <button id="foulCancel" type="button" class="cancel">キャンセル</button>
+  </div>
+</div>
+
+<!-- タイムアウト入力 -->
+<div id="toModal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="toModalTitle">タイムアウト</h3>
+    <label>経過時間（分・切り上げ）
+      <input type="number" id="toMinute" min="1" max="99" inputmode="numeric" placeholder="例）4">
+    </label>
+    <div class="modal-row">
+      <button id="toSave" type="button">記録する</button>
+      <button id="toCancel" type="button" class="cancel">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
