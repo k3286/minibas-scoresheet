@@ -11,9 +11,11 @@ import android.print.PrintManager
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import org.json.JSONObject
 
 /**
@@ -29,6 +31,7 @@ class MainActivity : Activity() {
 
     private lateinit var webView: WebView
     private var voiceBridge: VoiceBridge? = null
+    private var saveBridge: SaveBridge? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,6 +53,10 @@ class MainActivity : Activity() {
         val vb = VoiceBridge(this, webView)
         voiceBridge = vb
         webView.addJavascriptInterface(vb, "AndroidVoice")
+        // JavaScript からファイル（画像・PDF）を端末へ保存するためのブリッジ
+        val sb = SaveBridge(this, webView)
+        saveBridge = sb
+        webView.addJavascriptInterface(sb, "AndroidSave")
 
         webView.loadUrl("file:///android_asset/scoresheet/index.html")
     }
@@ -60,6 +67,14 @@ class MainActivity : Activity() {
             webView.goBack()
         } else {
             super.onBackPressed()
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SaveBridge.REQUEST_CREATE_DOCUMENT) {
+            saveBridge?.handleCreateDocumentResult(resultCode, data)
         }
     }
 
@@ -226,6 +241,100 @@ class MainActivity : Activity() {
         fun notifyError(code: Int) {
             val js = "window.onVoiceError && window.onVoiceError(" + code + ")"
             (context as? Activity)?.runOnUiThread {
+                webView.evaluateJavascript(js, null)
+            }
+        }
+    }
+
+    /**
+     * JavaScript 側の window.AndroidSave.saveFile(base64, fileName, mimeType) から呼ばれ、
+     * base64 のバイト列を保持して ACTION_CREATE_DOCUMENT（SAF）を起動し、
+     * ユーザーが選んだ保存先へ書き込むためのブリッジ。
+     * WebView には DownloadListener が無いため、画像・PDF の保存はこの経路で行う。
+     * 結果は Toast で知らせ、あわせて window.onSaveResult(true/false) が
+     * JS 側に定義されていればそれも呼ぶ。
+     */
+    class SaveBridge(
+        private val context: Context,
+        private val webView: WebView
+    ) {
+        companion object {
+            // VoiceBridge の REQUEST_RECORD_AUDIO(1001) と衝突しない値
+            const val REQUEST_CREATE_DOCUMENT = 1002
+        }
+
+        private var pendingBytes: ByteArray? = null
+        private var pendingName: String = ""
+
+        @JavascriptInterface
+        fun saveFile(base64Data: String, fileName: String, mimeType: String) {
+            val activity = context as? Activity ?: return
+            val bytes = try {
+                Base64.decode(base64Data, Base64.DEFAULT)
+            } catch (e: IllegalArgumentException) {
+                notifyResult(false, true)
+                return
+            }
+            pendingBytes = bytes
+            pendingName = fileName
+            // startActivityForResult はメインスレッドから呼ぶ
+            activity.runOnUiThread {
+                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = mimeType
+                    putExtra(Intent.EXTRA_TITLE, fileName)
+                }
+                try {
+                    activity.startActivityForResult(intent, REQUEST_CREATE_DOCUMENT)
+                } catch (e: Exception) {
+                    pendingBytes = null
+                    notifyResult(false, true)
+                }
+            }
+        }
+
+        /** ACTION_CREATE_DOCUMENT の結果を受け取り、選択された Uri へ書き込む */
+        fun handleCreateDocumentResult(resultCode: Int, data: Intent?) {
+            val bytes = pendingBytes
+            pendingBytes = null
+            val uri = data?.data
+            if (resultCode != Activity.RESULT_OK) {
+                // ユーザーが保存先の選択をキャンセルした場合は Toast を出さない
+                notifyResult(false, false)
+                return
+            }
+            if (bytes == null || uri == null) {
+                notifyResult(false, true)
+                return
+            }
+            // 書き込みはバックグラウンドスレッドで行う
+            Thread {
+                var ok = false
+                try {
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(bytes)
+                        out.flush()
+                        ok = true
+                    }
+                } catch (e: Exception) {
+                    ok = false
+                }
+                notifyResult(ok, true)
+            }.start()
+        }
+
+        private fun notifyResult(ok: Boolean, showToast: Boolean) {
+            val activity = context as? Activity ?: return
+            activity.runOnUiThread {
+                if (showToast) {
+                    val msg = if (ok) {
+                        if (pendingName.isNotEmpty()) "保存しました：$pendingName" else "保存しました"
+                    } else {
+                        "保存に失敗しました"
+                    }
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                }
+                val js = "window.onSaveResult && window.onSaveResult(" + ok + ")"
                 webView.evaluateJavascript(js, null)
             }
         }

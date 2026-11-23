@@ -1023,8 +1023,52 @@ function doPrint() {
   img.src = url;
 }
 
+/* ---------- ファイル保存の共通処理 ----------
+   Android アプリ内では保存ブリッジ（window.AndroidSave.saveFile）に
+   base64 で渡し、SAF（ACTION_CREATE_DOCUMENT）で端末へ保存する。
+   ブリッジが無い環境（PC ブラウザ等）では Blob + ダウンロードリンク。 */
+function androidSaveAvailable() {
+  return !!(window.AndroidSave && typeof window.AndroidSave.saveFile === 'function');
+}
+function blobToBase64(blob, cb) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    var s = String(reader.result || '');
+    var i = s.indexOf(',');
+    cb(i >= 0 ? s.slice(i + 1) : s);
+  };
+  reader.onerror = function () { cb(null); };
+  reader.readAsDataURL(blob);
+}
+/* blob をファイルとして保存する（ブリッジ優先、無ければダウンロード） */
+function saveBlobAsFile(blob, fileName, mimeType, onError) {
+  if (androidSaveAvailable()) {
+    blobToBase64(blob, function (b64) {
+      if (b64) {
+        window.AndroidSave.saveFile(b64, fileName, mimeType);
+      } else if (onError) {
+        onError();
+      }
+    });
+    return;
+  }
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  if (a.parentNode) a.parentNode.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+}
+/* ファイル名に使えない文字を取り除く */
+function sanitizeFileName(name) {
+  return String(name).replace(/[\\\/:*?"<>|]/g, '').replace(/[\u0000-\u001f]/g, '').trim();
+}
+
 /* ---------- 画像として保存 ----------
-   保存専用の Android ブリッジは無いため、canvas.toBlob → ダウンロードリンク方式。
+   Android アプリ内では保存ブリッジ経由で端末に保存する。
+   ブリッジが無い環境では canvas.toBlob → ダウンロードリンク方式。
    WebView 環境でダウンロードが効かない場合は印刷にフォールバックする。 */
 function saveSheetImage() {
   drawSheetCanvas();
@@ -1044,6 +1088,10 @@ function saveSheetImage() {
         try { download(canvas.toDataURL('image/png')); } catch (e) { doPrint(); }
         return;
       }
+      if (androidSaveAvailable()) {
+        saveBlobAsFile(blob, 'scoresheet.png', 'image/png', doPrint);
+        return;
+      }
       var url = URL.createObjectURL(blob);
       download(url);
       setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
@@ -1052,8 +1100,110 @@ function saveSheetImage() {
     try { download(canvas.toDataURL('image/png')); } catch (e) { doPrint(); }
   }
 }
+
+/* ---------- PDFで保存 ----------
+   シート canvas の JPEG を、外部ライブラリなしの最小構成 PDF
+   （A4 1ページ、画像を全面配置）に包んで保存する。 */
+function sheetPdfFileName() {
+  var d = (S && S.game) ? String(S.game.date || '') : '';
+  var name = d ? 'スコアシート_' + d + '.pdf' : 'スコアシート.pdf';
+  return sanitizeFileName(name) || 'スコアシート.pdf';
+}
+
+/* JPEG バイト列から A4 1ページの PDF（Uint8Array）を組み立てる */
+function buildSheetPdf(jpegBytes, imgW, imgH) {
+  var PAGE_W = 595.28, PAGE_H = 841.89;
+  var enc = new TextEncoder();
+  var parts = [];
+  var offsets = [];
+  var pos = 0;
+  function pushStr(s) { var b = enc.encode(s); parts.push(b); pos += b.length; }
+  function pushBytes(b) { parts.push(b); pos += b.length; }
+  function beginObj(n) { offsets[n] = pos; pushStr(n + ' 0 obj\n'); }
+
+  pushStr('%PDF-1.4\n');
+  beginObj(1);
+  pushStr('<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  beginObj(2);
+  pushStr('<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+  beginObj(3);
+  pushStr('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PAGE_W + ' ' + PAGE_H + '] ' +
+    '/Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>\nendobj\n');
+  var content = 'q\n' + PAGE_W + ' 0 0 ' + PAGE_H + ' 0 0 cm\n/Im0 Do\nQ\n';
+  beginObj(4);
+  pushStr('<< /Length ' + enc.encode(content).length + ' >>\nstream\n');
+  pushStr(content);
+  pushStr('endstream\nendobj\n');
+  beginObj(5);
+  pushStr('<< /Type /XObject /Subtype /Image /Width ' + imgW + ' /Height ' + imgH +
+    ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' +
+    jpegBytes.length + ' >>\nstream\n');
+  pushBytes(jpegBytes);
+  pushStr('\nendstream\nendobj\n');
+  var xrefPos = pos;
+  var size = 6;
+  var xref = 'xref\n0 ' + size + '\n0000000000 65535 f \n';
+  for (var i = 1; i < size; i++) {
+    var off = String(offsets[i]);
+    while (off.length < 10) off = '0' + off;
+    xref += off + ' 00000 n \n';
+  }
+  pushStr(xref);
+  pushStr('trailer\n<< /Size ' + size + ' /Root 1 0 R >>\nstartxref\n' + xrefPos + '\n%%EOF\n');
+  var total = 0, j;
+  for (j = 0; j < parts.length; j++) total += parts[j].length;
+  var out = new Uint8Array(total);
+  var p = 0;
+  for (j = 0; j < parts.length; j++) { out.set(parts[j], p); p += parts[j].length; }
+  return out;
+}
+
+function saveSheetPdf() {
+  drawSheetCanvas();
+  var canvas = document.getElementById('sheetCanvas');
+  if (!canvas) return;
+  var fileName = sheetPdfFileName();
+  function handleJpegBytes(bytes) {
+    if (!bytes) { alert('PDFの作成に失敗しました。'); return; }
+    var pdf = buildSheetPdf(bytes, canvas.width, canvas.height);
+    var blob = new Blob([pdf], { type: 'application/pdf' });
+    saveBlobAsFile(blob, fileName, 'application/pdf', function () {
+      alert('PDFの保存に失敗しました。');
+    });
+  }
+  function fallbackDataUrl() {
+    try {
+      var url = canvas.toDataURL('image/jpeg', 0.92);
+      var b64 = url.slice(url.indexOf(',') + 1);
+      var bin = atob(b64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      handleJpegBytes(bytes);
+    } catch (e) {
+      alert('PDFの作成に失敗しました。');
+    }
+  }
+  if (typeof canvas.toBlob === 'function') {
+    canvas.toBlob(function (blob) {
+      if (!blob) { fallbackDataUrl(); return; }
+      if (typeof blob.arrayBuffer === 'function') {
+        blob.arrayBuffer().then(function (buf) {
+          handleJpegBytes(new Uint8Array(buf));
+        }, fallbackDataUrl);
+      } else {
+        var r = new FileReader();
+        r.onload = function () { handleJpegBytes(new Uint8Array(r.result)); };
+        r.onerror = fallbackDataUrl;
+        r.readAsArrayBuffer(blob);
+      }
+    }, 'image/jpeg', 0.92);
+  } else {
+    fallbackDataUrl();
+  }
+}
 document.getElementById('btnPrint').addEventListener('click', doPrint);
 document.getElementById('btnSaveImage').addEventListener('click', saveSheetImage);
+document.getElementById('btnSavePdf').addEventListener('click', saveSheetPdf);
 document.getElementById('btnPrintTop').addEventListener('click', doPrint);
 document.getElementById('btnUndo').addEventListener('click', undo);
 document.getElementById('btnNewGame').addEventListener('click', function () {
