@@ -187,6 +187,41 @@ table.record tr.out { opacity: .45; }
 .modal-row #ocrApply { background: #e65100; color: #fff; border: none; font-weight: bold; }
 #ocrSourceModal .cancel { margin-top: 10px; }
 #ocrCapture, #ocrPick { border: 1px solid #1565c0; color: #1565c0; background: #fff; font-weight: bold; }
+#ocrEdit.hidden, #ocrDone.hidden { display: none; }
+.modal-row #ocrGoLineup { background: #33691e; color: #fff; border: none; font-weight: bold; }
+
+/* Q開始時：出場メンバー選択 */
+.lineup-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+#btnLineup {
+  background: #33691e; color: #fff; border: none; border-radius: 8px;
+  padding: 11px 16px; font-size: 15px; font-weight: bold;
+}
+.modal-box.lineup-box { max-width: 520px; width: 94%; max-height: 88vh; overflow-y: auto; }
+.lineup-players { display: grid; gap: 8px; margin: 10px 0; }
+.lpick {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px;
+  padding: 10px 12px; border: 2px solid #bbb; background: #fff; border-radius: 10px;
+  font-size: 16px; text-align: left; color: #222;
+}
+.lpick.sel { border-color: #33691e; background: #f1f8e9; }
+.lpick.disabled { opacity: .45; }
+.lp-no { font-size: 22px; font-weight: bold; min-width: 44px; text-align: center; }
+.lp-name { flex: 1; min-width: 0; }
+.lp-check { font-size: 20px; color: #33691e; font-weight: bold; min-width: 24px; text-align: center; }
+.lp-badge { font-size: 11px; border-radius: 9px; padding: 2px 7px; white-space: nowrap; }
+.lp-badge.b-new { background: #ffe082; color: #5d4037; }
+.lp-badge.b-sub { background: #e3f2fd; color: #1565c0; }
+.lp-badge.b-out { background: #ffcdd2; color: #c62828; }
+.lineup-same {
+  width: 100%; padding: 10px; border: 1px solid #33691e; color: #33691e;
+  background: #fff; border-radius: 8px; font-size: 14px; margin-bottom: 8px;
+}
+.lineup-same.hidden { display: none; }
+.lineup-count { font-size: 13px; color: #555; margin: 4px 0 10px; }
+.modal-row #lineupOk { background: #33691e; color: #fff; border: none; font-weight: bold; }
+.modal-row #lineupOk.disabled { background: #bbb; }
+.part-status { font-size: 12px; color: #33691e; margin: 2px 0 4px; }
+.notyet { background: #ffe082; color: #5d4037; border-radius: 8px; padding: 1px 6px; font-size: 11px; white-space: nowrap; }
 
 @media print {
   /* 印刷するのは #printRoot（canvas画像のみ、A4いっぱい）だけ */

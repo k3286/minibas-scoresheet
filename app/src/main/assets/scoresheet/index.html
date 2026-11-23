@@ -59,6 +59,7 @@
 
   <!-- ===== 選手登録 ===== -->
   <section id="tab-roster" class="tabpage">
+    <p class="hint">選手を登録したら、「記録」タブでクォーターごとに先発の5人を選びます（記録タブでクォーターを切り替えると、そのQの出場が未設定の場合は選択画面が自動で開きます）。</p>
     <div id="rosterEditors"></div>
   </section>
 
@@ -83,6 +84,10 @@
         <button type="button" data-q="4">Q4</button>
         <button type="button" data-q="OT">OT</button>
       </div>
+    </div>
+    <div class="lineup-bar">
+      <button id="btnLineup" type="button">🏀 出場メンバーを選ぶ</button>
+      <span class="hint">現在のクォーターの先発5人を選ぶ画面を開きます（選び直しもできます）。</span>
     </div>
     <p class="hint">出場ボタンはタップで切り替わります（未出場 → ／先発 → ＼途中出場）。得点した選手は自動で出場扱いになります。</p>
     <div id="recordPanels"></div>
@@ -165,6 +170,7 @@
 <div id="ocrModal" class="modal hidden">
   <div class="modal-box ocr-box">
     <h3>読み取り結果の確認</h3>
+    <div id="ocrEdit">
     <div class="voice-team ocr-team">
       <span>登録先：</span>
       <button type="button" id="ocrTeamA" class="vt">チームA</button>
@@ -182,6 +188,35 @@
     <div class="modal-row">
       <button id="ocrApply" type="button">この内容で登録する</button>
       <button id="ocrCancel" type="button">やめる</button>
+    </div>
+    </div>
+    <div id="ocrDone" class="hidden">
+      <p id="ocrDoneMsg" class="edit-desc"></p>
+      <div class="modal-row">
+        <button id="ocrGoLineup" type="button">続けてQ1の出場メンバーを選ぶ</button>
+        <button id="ocrDoneClose" type="button" class="cancel">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Q開始時：出場メンバー（先発5人）選択 -->
+<div id="lineupModal" class="modal hidden">
+  <div class="modal-box lineup-box">
+    <h3 id="lineupTitle">出場メンバーを選ぶ</h3>
+    <div class="voice-team lineup-team">
+      <span>チーム：</span>
+      <button type="button" id="lineupTeamA" class="vt">チームA</button>
+      <button type="button" id="lineupTeamB" class="vt">チームB</button>
+      <span id="lineupTeamName"></span>
+    </div>
+    <p id="lineupInfo" class="hint"></p>
+    <div id="lineupPlayers" class="lineup-players"></div>
+    <button id="lineupSame" type="button" class="lineup-same">前のQと同じメンバーにする</button>
+    <p id="lineupCount" class="lineup-count"></p>
+    <div class="modal-row">
+      <button id="lineupOk" type="button">確定する</button>
+      <button id="lineupCancel" type="button" class="cancel">キャンセル</button>
     </div>
   </div>
 </div>

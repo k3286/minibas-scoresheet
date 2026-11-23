@@ -165,11 +165,211 @@ document.getElementById('rosterEditors').addEventListener('click', function (e) 
 document.getElementById('quarterBtns').addEventListener('click', function (e) {
   var b = e.target.closest('button[data-q]');
   if (!b) return;
+  var changed = S.quarter !== b.dataset.q;
   S.quarter = b.dataset.q;
   document.querySelectorAll('#quarterBtns button').forEach(function (x) {
     x.classList.toggle('active', x.dataset.q === S.quarter);
   });
   save(); renderRecord();
+  /* 新しいQに切り替えたとき、そのQの出場が両チームとも未設定なら
+     先発メンバー選択画面を自動で開く */
+  if (changed) maybeOpenLineup(S.quarter);
+});
+
+/* ---------- 出場（participation）まわりの共通処理 ---------- */
+/* 登録済み選手（背番号か氏名がある行）の一覧 [{p, i}] */
+function registeredList(t) {
+  return S.teams[t].players.map(function (p, i) { return { p: p, i: i }; })
+    .filter(function (x) { return x.p.no !== '' || x.p.name !== ''; });
+}
+/* その選手がこの試合で1つでも出場マークを持っているか */
+function playerHasPlayed(t, idx) {
+  var m = S.participation[t][idx];
+  return !!(m && Object.keys(m).length > 0);
+}
+/* そのQにそのチームの出場マークが1つでもあるか */
+function quarterHasMarks(t, q) {
+  var part = S.participation[t] || {};
+  return Object.keys(part).some(function (idx) { return !!(part[idx] && part[idx][q]); });
+}
+/* ミニバスの出場ルールの進捗表示（表示のみ。記録はブロックしない）
+   登録10人以上なら「Q3終了時点で10人の出場が必要」として残り人数を出す */
+function participationStatusText(t) {
+  var reg = registeredList(t);
+  if (!reg.length) return '';
+  var played = 0;
+  reg.forEach(function (x) { if (playerHasPlayed(t, x.i)) played++; });
+  var target = Math.min(10, reg.length);
+  var rest = Math.max(0, target - played);
+  if (reg.length >= 10) return '出場済み ' + played + '人／あと' + rest + '人（Q3まで）';
+  return '出場済み ' + played + '人／全員出場まで あと' + rest + '人';
+}
+
+/* ---------- Q開始時：出場メンバー（先発5人）選択 ----------
+   クォーター開始時に先発5人をタップで選ぶ画面。確定すると選んだ選手に
+   そのQの出場マーク「／」（'s'）が記録される（公式シート描画と同形式）。
+   Q途中の交代は従来どおり記録タブの出場ボタンで行う想定で、この画面は
+   先発（'s'）だけを編集する。途中出場（'i'）の記録は確定時も消さない。 */
+var lineupCtx = null;   // { q, team, sel: { A: [idx...], B: [idx...] } }
+
+function prevQuarterOf(q) {
+  return { '2': '1', '3': '2', '4': '3', 'OT': '4' }[q] || null;
+}
+/* そのチーム・そのQで先発に必要な人数（登録が5人未満なら登録全員） */
+function lineupRequired(t) {
+  return Math.min(5, registeredList(t).length);
+}
+/* そのQの先発（'s'）の idx 一覧。先発記録が無い場合は出場マーク全体で代用 */
+function starterIdxList(t, q) {
+  var reg = registeredList(t);
+  var s = reg.filter(function (x) { return (S.participation[t][x.i] || {})[q] === 's'; })
+    .map(function (x) { return x.i; });
+  if (!s.length) {
+    s = reg.filter(function (x) { return !!(S.participation[t][x.i] || {})[q]; })
+      .map(function (x) { return x.i; });
+  }
+  return s;
+}
+function openLineup(q) {
+  lineupCtx = { q: q, team: 'A', sel: { A: starterIdxList('A', q), B: starterIdxList('B', q) } };
+  /* 退場（5ファウル）の選手は先発に選べないので初期選択から外す */
+  ['A', 'B'].forEach(function (t) {
+    lineupCtx.sel[t] = lineupCtx.sel[t].filter(function (idx) {
+      return playerFouls(t, idx).length < 5;
+    });
+  });
+  document.getElementById('lineupTitle').textContent =
+    qLabel(q) + ' 出場メンバー（先発5人）';
+  renderLineup();
+  document.getElementById('lineupModal').classList.remove('hidden');
+}
+/* Q切替時の自動オープン：両チームともそのQの出場が未設定で、
+   どちらかのチームに登録選手がいる場合だけ開く */
+function maybeOpenLineup(q) {
+  var modal = document.getElementById('lineupModal');
+  if (modal && !modal.classList.contains('hidden')) return;
+  if (quarterHasMarks('A', q) || quarterHasMarks('B', q)) return;
+  if (!registeredList('A').length && !registeredList('B').length) return;
+  openLineup(q);
+}
+function renderLineup() {
+  if (!lineupCtx) return;
+  var t = lineupCtx.team, q = lineupCtx.q;
+  var btnA = document.getElementById('lineupTeamA');
+  var btnB = document.getElementById('lineupTeamB');
+  btnA.classList.toggle('active', t === 'A');
+  btnB.classList.toggle('active', t === 'B');
+  btnA.textContent = 'チームA（' + lineupCtx.sel.A.length + '/' + lineupRequired('A') + '）';
+  btnB.textContent = 'チームB（' + lineupCtx.sel.B.length + '/' + lineupRequired('B') + '）';
+  var nm = S.teams[t].name;
+  document.getElementById('lineupTeamName').textContent = nm ? '（' + nm + '）' : '';
+  document.getElementById('lineupInfo').textContent = participationStatusText(t);
+  var reg = registeredList(t);
+  var root = document.getElementById('lineupPlayers');
+  if (!reg.length) {
+    root.innerHTML = '<p class="hint">登録されている選手がいません。「選手登録」タブで登録してください。</p>';
+  } else {
+    root.innerHTML = reg.map(function (x) {
+      var idx = x.i, p = x.p;
+      var sel = lineupCtx.sel[t].indexOf(idx) >= 0;
+      var fc = playerFouls(t, idx).length;
+      var out = fc >= 5;
+      var mark = (S.participation[t][idx] || {})[q];
+      var badges = '';
+      if (out) badges += '<span class="lp-badge b-out">退場</span>';
+      else if (!playerHasPlayed(t, idx)) badges += '<span class="lp-badge b-new">未出場</span>';
+      if (mark === 'i') badges += '<span class="lp-badge b-sub">途中出場で記録あり</span>';
+      return '<button type="button" class="lpick' + (sel ? ' sel' : '') + (out ? ' disabled' : '') +
+        '" data-idx="' + idx + '"' + (out ? ' disabled' : '') + '>' +
+        '<span class="lp-no">' + esc(p.no || '―') + '</span>' +
+        '<span class="lp-name">' + esc(p.name || '（無名）') + '</span>' +
+        badges +
+        '<span class="lp-check">' + (sel ? '✓' : '') + '</span></button>';
+    }).join('');
+  }
+  var pq = prevQuarterOf(q);
+  var sameBtn = document.getElementById('lineupSame');
+  if (pq) {
+    sameBtn.classList.remove('hidden');
+    sameBtn.textContent = '前のQ（' + qLabel(pq) + '）と同じメンバーにする';
+  } else {
+    sameBtn.classList.add('hidden');
+  }
+  var okA = lineupCtx.sel.A.length === lineupRequired('A');
+  var okB = lineupCtx.sel.B.length === lineupRequired('B');
+  var okBtn = document.getElementById('lineupOk');
+  okBtn.disabled = !(okA && okB);
+  okBtn.classList.toggle('disabled', okBtn.disabled);
+  document.getElementById('lineupCount').textContent =
+    'チームA ' + lineupCtx.sel.A.length + '/' + lineupRequired('A') + '人、チームB ' +
+    lineupCtx.sel.B.length + '/' + lineupRequired('B') + '人' +
+    ((okA && okB) ? '：確定できます' : '：両チームとも人数を合わせてください');
+}
+document.getElementById('lineupPlayers').addEventListener('click', function (e) {
+  var b = e.target.closest('.lpick');
+  if (!b || b.disabled || !lineupCtx) return;
+  var idx = Number(b.dataset.idx);
+  var sel = lineupCtx.sel[lineupCtx.team];
+  var pos = sel.indexOf(idx);
+  if (pos >= 0) sel.splice(pos, 1);
+  else {
+    if (sel.length >= 5) { voiceStatus('先発は5人までです'); return; }
+    sel.push(idx);
+  }
+  renderLineup();
+});
+document.getElementById('lineupTeamA').addEventListener('click', function () {
+  if (!lineupCtx) return;
+  lineupCtx.team = 'A'; renderLineup();
+});
+document.getElementById('lineupTeamB').addEventListener('click', function () {
+  if (!lineupCtx) return;
+  lineupCtx.team = 'B'; renderLineup();
+});
+document.getElementById('lineupSame').addEventListener('click', function () {
+  if (!lineupCtx) return;
+  var pq = prevQuarterOf(lineupCtx.q);
+  if (!pq) return;
+  var t = lineupCtx.team;
+  var list = starterIdxList(t, pq).filter(function (idx) {
+    return playerFouls(t, idx).length < 5;
+  });
+  if (!list.length) {
+    voiceStatus('前のQ（' + qLabel(pq) + '）の出場メンバーが記録されていません');
+    return;
+  }
+  lineupCtx.sel[t] = list.slice(0, 5);
+  renderLineup();
+});
+document.getElementById('lineupOk').addEventListener('click', function () {
+  if (!lineupCtx) return;
+  if (lineupCtx.sel.A.length !== lineupRequired('A') ||
+      lineupCtx.sel.B.length !== lineupRequired('B')) return;
+  var q = lineupCtx.q;
+  snapshot();
+  ['A', 'B'].forEach(function (t) {
+    var sel = lineupCtx.sel[t];
+    registeredList(t).forEach(function (x) {
+      var part = S.participation[t][x.i];
+      if (sel.indexOf(x.i) >= 0) {
+        if (!part) part = S.participation[t][x.i] = {};
+        part[q] = 's';
+      } else if (part && part[q] === 's') {
+        delete part[q];
+      }
+      /* 途中出場（'i'）の記録はこの画面では変更しない */
+    });
+  });
+  lineupCtx = null;
+  document.getElementById('lineupModal').classList.add('hidden');
+  save(); renderRecord(); renderSheet();
+});
+document.getElementById('lineupCancel').addEventListener('click', function () {
+  lineupCtx = null;
+  document.getElementById('lineupModal').classList.add('hidden');
+});
+document.getElementById('btnLineup').addEventListener('click', function () {
+  openLineup(S.quarter);
 });
 
 function renderRecord() {
@@ -184,8 +384,7 @@ function renderRecord() {
     var chips = tos.map(function (m, i) {
       return '<span class="chip">' + q + ' ' + m + '分<b data-act="delto" data-team="' + t + '" data-i="' + i + '">×</b></span>';
     }).join('');
-    var registered = team.players.map(function (p, i) { return { p: p, i: i }; })
-      .filter(function (x) { return x.p.no !== '' || x.p.name !== ''; });
+    var registered = registeredList(t);
     var rows;
     if (registered.length === 0) {
       rows = '<p class="hint">「選手登録」タブで選手を登録してください。</p>';
@@ -202,6 +401,7 @@ function renderRecord() {
           return '<tr' + (fc >= 5 ? ' class="out"' : '') + '>' +
             '<td><button type="button" class="play' + (part ? ' on' : '') + '" data-act="play" data-team="' + t + '" data-idx="' + i + '">' + playLabel + '</button></td>' +
             '<td class="pname"><span class="pno">' + esc(p.no || '―') + '</span> ' + esc(p.name) +
+            (playerHasPlayed(t, i) ? '' : ' <span class="notyet">未出場</span>') +
             (fc ? ' <span class="foulcount">F' + fc + (fc >= 5 ? '（退場）' : '') + '</span>' : '') + '</td>' +
             '<td>' + ptsBtns + '</td>' +
             '<td><button type="button" class="foul" data-act="foul" data-team="' + t + '" data-idx="' + i + '">F</button></td></tr>';
@@ -216,6 +416,7 @@ function renderRecord() {
       '<button type="button" data-act="foul" data-team="' + t + '" data-who="acoach">AコーチF</button>' +
       '</span></header>' +
       '<div class="to-chips">' + (chips ? 'TO（' + q + '）: ' + chips : '') + '</div>' +
+      (participationStatusText(t) ? '<div class="part-status">' + esc(participationStatusText(t)) + '</div>' : '') +
       rows + '</div>';
   }).join('');
 }
@@ -1529,6 +1730,8 @@ document.getElementById('ocrTeamA').addEventListener('click', function () { setO
 document.getElementById('ocrTeamB').addEventListener('click', function () { setOcrTeam('B'); });
 
 function openOcrModal(rows) {
+  document.getElementById('ocrEdit').classList.remove('hidden');
+  document.getElementById('ocrDone').classList.add('hidden');
   document.getElementById('ocrRows').innerHTML = rows.map(ocrRowHtml).join('');
   var rawWrap = document.getElementById('ocrRawWrap');
   if (ocrRawTexts.length) {
@@ -1580,8 +1783,30 @@ document.getElementById('ocrApply').addEventListener('click', function () {
       : emptyPlayer();
   }
   save(); renderRoster(); renderRecord(); renderSheet();
-  document.getElementById('ocrModal').classList.add('hidden');
   voiceStatus('チーム' + ocrTeam + 'に ' + rows.length + ' 人を登録しました');
+  showOcrDone(ocrTeam, rows.length);
+});
+
+/* OCR登録の完了表示：そのまま Q1 の先発メンバー選択へ進める導線を出す */
+function showOcrDone(team, count) {
+  document.getElementById('ocrEdit').classList.add('hidden');
+  document.getElementById('ocrDone').classList.remove('hidden');
+  document.getElementById('ocrDoneMsg').textContent =
+    'チーム' + team + 'に ' + count + ' 人を登録しました。続けてQ1の先発メンバー（5人）を選べます。';
+}
+function closeOcrDone() {
+  document.getElementById('ocrModal').classList.add('hidden');
+  document.getElementById('ocrEdit').classList.remove('hidden');
+  document.getElementById('ocrDone').classList.add('hidden');
+}
+document.getElementById('ocrDoneClose').addEventListener('click', closeOcrDone);
+document.getElementById('ocrGoLineup').addEventListener('click', function () {
+  closeOcrDone();
+  var recBtn = document.querySelector('#tabs button[data-tab="record"]');
+  if (recBtn) recBtn.click();
+  if (S.quarter !== '1') { S.quarter = '1'; save(); }
+  renderRecord();
+  openLineup('1');
 });
 
 window.onOcrResult = function (json) {
