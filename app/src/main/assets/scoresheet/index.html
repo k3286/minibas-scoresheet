@@ -13,7 +13,6 @@
   <h1>🏀 ミニバス スコアシート</h1>
   <div class="appbar-actions">
     <button id="btnUndo" type="button">↩ 元に戻す</button>
-    <button id="btnPrintTop" type="button">🖨 印刷</button>
   </div>
 </header>
 
@@ -99,10 +98,9 @@
   <!-- ===== 公式シート ===== -->
   <section id="tab-sheet" class="tabpage">
     <div class="sheet-actions noprint">
-      <button id="btnPrint" type="button">🖨 A4で印刷する</button>
       <button id="btnSaveImage" type="button">🖼 画像として保存</button>
       <button id="btnSavePdf" type="button">📄 PDFで保存</button>
-      <span class="hint">JBA公式様式の画像の上に、記録した内容をそのまま描いたシートです。印刷するとA4縦1枚で出力されます。</span>
+      <span class="hint">JBA公式様式の画像の上に、記録した内容をそのまま描いたシートです。PDFや画像で保存できます。</span>
     </div>
     <div class="sheet-scroll">
       <canvas id="sheetCanvas" width="2481" height="3509"></canvas>

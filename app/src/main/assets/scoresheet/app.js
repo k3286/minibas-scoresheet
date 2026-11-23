@@ -1201,10 +1201,8 @@ function saveSheetPdf() {
     fallbackDataUrl();
   }
 }
-document.getElementById('btnPrint').addEventListener('click', doPrint);
 document.getElementById('btnSaveImage').addEventListener('click', saveSheetImage);
 document.getElementById('btnSavePdf').addEventListener('click', saveSheetPdf);
-document.getElementById('btnPrintTop').addEventListener('click', doPrint);
 document.getElementById('btnUndo').addEventListener('click', undo);
 document.getElementById('btnNewGame').addEventListener('click', function () {
   if (!confirm('全てのデータを消去して新しい試合を始めます。よろしいですか？')) return;
