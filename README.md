@@ -46,6 +46,10 @@
 
 ![記録タブ](docs/images/record.jpg)
 
+クォーターの開始時は、先発5人をタップで選ぶ画面が開きます（まだ出場していない選手には「未出場」と表示されます）。
+
+![出場メンバー選択画面](docs/images/lineup.jpg)
+
 1. 上部のボタンで、記録するクォーター（Q1〜Q4・OT）を選びます。そのQの出場がまだ決まっていない場合は、先発5人を選ぶ画面が自動で開きます。両チームの選手をタップして5人ずつ選び、「確定する」を押すと出場時限に「／」が記録されます（前のクォーターと同じ顔ぶれなら「前のQ（○）と同じメンバーにする」が便利です）。選び直したいときは「🏀 出場メンバーを選ぶ」ボタンから開き直せます
 2. 得点は選手の行の「+1」「+2」（3ポイント採用時は「+3」）をタップ
 3. ファウルは「F」ボタンをタップし、種類（P・U・T など）を選びます
@@ -113,7 +117,6 @@
 - **言語**：Kotlin（Android側）＋ HTML/CSS/JavaScript（スコアシート本体）
 - **方式**：単一ActivityがWebViewでローカルアセット（`app/src/main/assets/scoresheet/`）を表示するハイブリッド構成
   - 入力UI・公式シート描画はWeb技術で実装（公式シートはCanvasに公式様式の画像＋記録を描画）
-  - 印刷は `PrintManager` へJavaScriptブリッジ（`AndroidPrint.printSheet()`）で連携
   - 音声入力は Android の `SpeechRecognizer` へJavaScriptブリッジ（`AndroidVoice`）で連携
   - 画像・PDFの保存は SAF（`ACTION_CREATE_DOCUMENT`）へJavaScriptブリッジ（`AndroidSave.saveFile()`）で連携
   - メンバー表のOCR取り込みは ML Kit（日本語・モデル同梱版）へJavaScriptブリッジ（`AndroidOcr`）で連携し、端末内で文字認識（撮影は `ACTION_IMAGE_CAPTURE`、写真選択は `ACTION_OPEN_DOCUMENT` へ委譲）
