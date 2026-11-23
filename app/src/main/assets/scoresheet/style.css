@@ -155,6 +155,39 @@ table.record tr.out { opacity: .45; }
   color: #c62828; background: #fff; border-radius: 8px; font-size: 14px;
 }
 
+/* メンバー表OCR取り込み */
+.team-editor .ocr-open {
+  background: #1565c0; color: #fff; border: none; border-radius: 8px;
+  padding: 10px 14px; font-size: 14px; font-weight: bold;
+}
+.modal-box.ocr-box { max-width: 560px; width: 94%; max-height: 88vh; overflow-y: auto; }
+#ocrRawWrap.hidden { display: none; }
+#ocrRawWrap h4 { font-size: 13px; margin: 10px 0 6px; color: #555; }
+.ocr-raw {
+  background: #f5f5f5; border-radius: 6px; padding: 8px 10px;
+  font-size: 12px; color: #666; white-space: pre-wrap; word-break: break-all;
+}
+.ocr-team { margin-bottom: 8px; }
+.ocr-head, .ocr-row { display: flex; gap: 6px; align-items: center; }
+.ocr-head { font-size: 11px; color: #777; margin-bottom: 4px; }
+.ocr-head .c-no, .ocr-row .o-no { width: 64px; flex: none; text-align: center; }
+.ocr-head .c-name, .ocr-row .o-name { flex: 1; min-width: 0; }
+.ocr-head .c-lic, .ocr-row .o-lic { width: 92px; flex: none; text-align: center; }
+.ocr-head .c-del, .ocr-row .o-del { width: 36px; flex: none; }
+.ocr-row { margin-bottom: 6px; }
+.ocr-row input { padding: 8px; border: 1px solid #bbb; border-radius: 6px; font-size: 15px; }
+.ocr-row .o-del {
+  background: #fff; border: 1px solid #c62828; color: #c62828;
+  border-radius: 6px; padding: 7px 0; font-size: 14px;
+}
+.ocr-add {
+  width: 100%; padding: 9px; border: 1px dashed #999; background: #fafafa;
+  border-radius: 8px; font-size: 14px; color: #555; margin: 2px 0 10px;
+}
+.modal-row #ocrApply { background: #e65100; color: #fff; border: none; font-weight: bold; }
+#ocrSourceModal .cancel { margin-top: 10px; }
+#ocrCapture, #ocrPick { border: 1px solid #1565c0; color: #1565c0; background: #fff; font-weight: bold; }
+
 @media print {
   /* 印刷するのは #printRoot（canvas画像のみ、A4いっぱい）だけ */
   #appbar, #tabs, main, .modal, .voice-status { display: none !important; }

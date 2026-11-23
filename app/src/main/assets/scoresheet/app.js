@@ -132,6 +132,7 @@ function renderRoster() {
       '<button type="button" class="mic-btn" title="音声入力">🎤</button>' +
       '<input class="tcolor" data-team="' + t + '" data-field="color" value="' + esc(team.color) + '" placeholder="ユニフォーム色（例：白）">' +
       '</div>' +
+      '<div class="row"><button type="button" class="ocr-open" data-ocr-team="' + t + '">📷 メンバー表を取り込む</button></div>' +
       '<table class="roster"><thead><tr><th style="width:8%">#</th><th style="width:16%">背番号</th><th>選手氏名</th><th style="width:22%">ライセンスNo.<br>下3桁</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table>' +
       '<div class="coach-rows">' +
@@ -153,6 +154,11 @@ document.getElementById('rosterEditors').addEventListener('input', function (e) 
   }
   save();
   setVoiceTeam(voiceTeam);
+});
+document.getElementById('rosterEditors').addEventListener('click', function (e) {
+  var b = e.target.closest('[data-ocr-team]');
+  if (!b) return;
+  openOcrSource(b.dataset.ocrTeam);
 });
 
 /* ---------- 記録 ---------- */
@@ -1394,6 +1400,218 @@ document.addEventListener('click', function (e) {
   voiceFieldEl = input;
   startVoice('dictation');
 });
+
+/* ---------- メンバー表のOCR取り込み（AndroidOcr ブリッジ） ----------
+   大会で渡されるメンバー表（紙）を撮影／写真選択し、ネイティブ側
+   （MainActivity の OcrBridge）が ML Kit（日本語・モデル同梱版）で
+   読み取った行テキスト＋座標を window.onOcrResult(json) で受け取る。
+   行を y 座標で表の行にまとめ直し、背番号・氏名・ライセンス下3桁を抽出。
+   登録前に必ず確認画面（モーダル）で編集でき、抽出できなかった生テキストは
+   捨てずに「読み取れなかった行」として参考表示する。
+   認識は端末内で完結し、写真や名前が外部に送信されることはない。 */
+var ocrTeam = 'A';     // 取り込み先チーム（ボタンを押した側）
+var ocrRawTexts = [];  // データ行にできなかった生テキスト
+
+function ocrAvailable() {
+  return !!(window.AndroidOcr &&
+    typeof window.AndroidOcr.capture === 'function' &&
+    typeof window.AndroidOcr.pick === 'function');
+}
+
+/* 全角の数字・英字を半角へ（氏名の漢字・かなはそのまま） */
+function ocrNormalize(s) {
+  return String(s == null ? '' : s).replace(/[０-９Ａ-Ｚａ-ｚ]/g, function (c) {
+    return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+  });
+}
+
+/* ML Kit の行要素を、y 座標の重なりで「表の1行」にまとめ直す。
+   戻り値は、行ごとに x 順に並んだセル文字列の配列。 */
+function ocrGroupRows(lines) {
+  var items = (lines || []).map(function (l) {
+    return {
+      text: String(l.text == null ? '' : l.text),
+      left: Number(l.left) || 0, top: Number(l.top) || 0,
+      right: Number(l.right) || 0, bottom: Number(l.bottom) || 0
+    };
+  }).filter(function (l) { return l.text.trim() !== ''; });
+  items.sort(function (a, b) {
+    var ca = (a.top + a.bottom) / 2, cb = (b.top + b.bottom) / 2;
+    return ca - cb || a.left - b.left;
+  });
+  var groups = [];
+  items.forEach(function (it) {
+    var g = groups.length ? groups[groups.length - 1] : null;
+    if (g) {
+      var overlap = Math.min(g.bottom, it.bottom) - Math.max(g.top, it.top);
+      var minH = Math.min(g.bottom - g.top, it.bottom - it.top);
+      if (minH > 0 && overlap > minH * 0.3) {
+        g.cells.push(it);
+        g.top = Math.min(g.top, it.top);
+        g.bottom = Math.max(g.bottom, it.bottom);
+        return;
+      }
+    }
+    groups.push({ top: it.top, bottom: it.bottom, cells: [it] });
+  });
+  return groups.map(function (g) {
+    g.cells.sort(function (a, b) { return a.left - b.left; });
+    return g.cells.map(function (c) { return c.text; });
+  });
+}
+
+/* 表の1行（セル文字列の配列）から 背番号・氏名・ライセンス下3桁 を抽出する。
+   背番号（1〜2桁の数）が取れない行はデータ行にせず null を返す。 */
+function ocrParseRow(cells) {
+  var text = ocrNormalize(cells.join(' '));
+  var tokens = text.split(/[\s　]+/).filter(function (x) { return x !== ''; });
+  var no = '', license = '', nameParts = [];
+  tokens.forEach(function (tok) {
+    var digits = tok.replace(/[^\d]/g, '');
+    if (no === '' && /^\d{1,2}$/.test(tok)) {
+      no = tok;
+    } else if (license === '' && digits.length >= 3 && !/[ぁ-んァ-ヶ一-龠々]/.test(tok)) {
+      // 数字列（区切りや接頭辞つきでも可）があればライセンス番号とみなし下3桁
+      license = digits.slice(-3);
+    } else if (!/^\d+$/.test(tok)) {
+      nameParts.push(tok);
+    }
+  });
+  if (no === '') return null;
+  return { no: no, name: nameParts.join(''), license: license };
+}
+
+function openOcrSource(team) {
+  ocrTeam = team;
+  if (!ocrAvailable()) {
+    voiceStatus('メンバー表の取り込みはAndroidアプリで使えます');
+    return;
+  }
+  document.getElementById('ocrSourceTitle').textContent =
+    'メンバー表を取り込む（チーム' + team + '）';
+  document.getElementById('ocrSourceModal').classList.remove('hidden');
+}
+document.getElementById('ocrCapture').addEventListener('click', function () {
+  document.getElementById('ocrSourceModal').classList.add('hidden');
+  try {
+    window.AndroidOcr.capture();
+  } catch (e) {
+    voiceStatus('カメラを起動できませんでした');
+  }
+});
+document.getElementById('ocrPick').addEventListener('click', function () {
+  document.getElementById('ocrSourceModal').classList.add('hidden');
+  try {
+    window.AndroidOcr.pick();
+  } catch (e) {
+    voiceStatus('写真の選択を開けませんでした');
+  }
+});
+document.getElementById('ocrSourceCancel').addEventListener('click', function () {
+  document.getElementById('ocrSourceModal').classList.add('hidden');
+});
+
+function ocrRowHtml(r) {
+  return '<div class="ocr-row">' +
+    '<input class="o-no" value="' + esc(r.no) + '" inputmode="numeric" placeholder="No.">' +
+    '<input class="o-name" value="' + esc(r.name) + '" placeholder="選手氏名">' +
+    '<input class="o-lic" value="' + esc(r.license) + '" inputmode="numeric" maxlength="3" placeholder="3桁">' +
+    '<button type="button" class="o-del" title="この行を削除">×</button></div>';
+}
+function setOcrTeam(t) {
+  ocrTeam = t;
+  document.getElementById('ocrTeamA').classList.toggle('active', t === 'A');
+  document.getElementById('ocrTeamB').classList.toggle('active', t === 'B');
+  var nm = S.teams[t].name;
+  document.getElementById('ocrTeamName').textContent = nm ? '（' + nm + '）' : '';
+}
+document.getElementById('ocrTeamA').addEventListener('click', function () { setOcrTeam('A'); });
+document.getElementById('ocrTeamB').addEventListener('click', function () { setOcrTeam('B'); });
+
+function openOcrModal(rows) {
+  document.getElementById('ocrRows').innerHTML = rows.map(ocrRowHtml).join('');
+  var rawWrap = document.getElementById('ocrRawWrap');
+  if (ocrRawTexts.length) {
+    rawWrap.classList.remove('hidden');
+    document.getElementById('ocrRaw').textContent = ocrRawTexts.join('\n');
+  } else {
+    rawWrap.classList.add('hidden');
+    document.getElementById('ocrRaw').textContent = '';
+  }
+  setOcrTeam(ocrTeam);
+  document.getElementById('ocrModal').classList.remove('hidden');
+}
+document.getElementById('ocrRows').addEventListener('click', function (e) {
+  var b = e.target.closest('.o-del');
+  if (!b) return;
+  var row = b.closest('.ocr-row');
+  if (row) row.remove();
+});
+document.getElementById('ocrAddRow').addEventListener('click', function () {
+  document.getElementById('ocrRows').insertAdjacentHTML(
+    'beforeend', ocrRowHtml({ no: '', name: '', license: '' }));
+});
+document.getElementById('ocrCancel').addEventListener('click', function () {
+  document.getElementById('ocrModal').classList.add('hidden');
+});
+document.getElementById('ocrApply').addEventListener('click', function () {
+  var rows = [];
+  document.querySelectorAll('#ocrRows .ocr-row').forEach(function (rowEl) {
+    var no = rowEl.querySelector('.o-no').value.trim();
+    var name = rowEl.querySelector('.o-name').value.trim();
+    var lic = rowEl.querySelector('.o-lic').value.trim();
+    if (no === '' && name === '' && lic === '') return;
+    rows.push({ no: no, name: name, license: lic.slice(-3) });
+  });
+  if (rows.length === 0) { alert('登録する行がありません。'); return; }
+  if (rows.length > 15) {
+    alert('登録できるのは15人までです（' + rows.length + '行あります）。行を減らしてください。');
+    return;
+  }
+  var team = S.teams[ocrTeam];
+  var hasExisting = team.players.some(function (p) { return p.no !== '' || p.name !== ''; });
+  if (hasExisting && !confirm(
+    'チーム' + ocrTeam + 'には既に選手が登録されています。読み取った ' +
+    rows.length + ' 人で置き換えますか？'
+  )) return;
+  for (var i = 0; i < 15; i++) {
+    team.players[i] = rows[i]
+      ? { no: rows[i].no, name: rows[i].name, license: rows[i].license }
+      : emptyPlayer();
+  }
+  save(); renderRoster(); renderRecord(); renderSheet();
+  document.getElementById('ocrModal').classList.add('hidden');
+  voiceStatus('チーム' + ocrTeam + 'に ' + rows.length + ' 人を登録しました');
+});
+
+window.onOcrResult = function (json) {
+  var data = null;
+  try { data = JSON.parse(json); } catch (e) { data = null; }
+  var lines = (data && data.lines) || [];
+  if (!lines.length) {
+    voiceStatus('メンバー表から文字を読み取れませんでした');
+    return;
+  }
+  var rows = [], raw = [];
+  ocrGroupRows(lines).forEach(function (cells) {
+    var parsed = ocrParseRow(cells);
+    if (parsed) rows.push(parsed);
+    else raw.push(cells.join(' '));
+  });
+  ocrRawTexts = raw;
+  openOcrModal(rows);
+};
+window.onOcrError = function (code) {
+  if (code === 1) {
+    voiceStatus('メンバー表の取り込みをキャンセルしました');
+    return;
+  }
+  var msg;
+  if (code === 2) msg = '画像を開けませんでした';
+  else if (code === 4) msg = 'カメラ／写真のアプリが見つかりませんでした';
+  else msg = '文字を読み取れませんでした。明るい場所で、表がまっすぐ写るように撮り直してください';
+  voiceStatus(msg + '（エラー ' + code + '）');
+};
 
 /* ---------- 初期化 ---------- */
 ensureSeq();

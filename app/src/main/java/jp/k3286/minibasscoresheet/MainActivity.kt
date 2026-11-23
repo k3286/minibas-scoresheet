@@ -2,12 +2,19 @@ package jp.k3286.minibasscoresheet
 
 import android.Manifest
 import android.app.Activity
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.print.PrintAttributes
 import android.print.PrintManager
+import android.provider.MediaStore
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -16,6 +23,11 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -32,6 +44,7 @@ class MainActivity : Activity() {
     private lateinit var webView: WebView
     private var voiceBridge: VoiceBridge? = null
     private var saveBridge: SaveBridge? = null
+    private var ocrBridge: OcrBridge? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +70,10 @@ class MainActivity : Activity() {
         val sb = SaveBridge(this, webView)
         saveBridge = sb
         webView.addJavascriptInterface(sb, "AndroidSave")
+        // JavaScript からメンバー表のOCR取り込みを呼び出すためのブリッジ
+        val ob = OcrBridge(this, webView)
+        ocrBridge = ob
+        webView.addJavascriptInterface(ob, "AndroidOcr")
 
         webView.loadUrl("file:///android_asset/scoresheet/index.html")
     }
@@ -75,6 +92,12 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == SaveBridge.REQUEST_CREATE_DOCUMENT) {
             saveBridge?.handleCreateDocumentResult(resultCode, data)
+        }
+        if (requestCode == OcrBridge.REQUEST_OCR_CAPTURE) {
+            ocrBridge?.handleCaptureResult(resultCode)
+        }
+        if (requestCode == OcrBridge.REQUEST_OCR_PICK) {
+            ocrBridge?.handlePickResult(resultCode, data)
         }
     }
 
@@ -335,6 +358,235 @@ class MainActivity : Activity() {
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 }
                 val js = "window.onSaveResult && window.onSaveResult(" + ok + ")"
+                webView.evaluateJavascript(js, null)
+            }
+        }
+    }
+
+    /**
+     * JavaScript 側の window.AndroidOcr.capture() / pick() から呼ばれ、
+     * メンバー表（紙）を撮影または写真から選んで、ML Kit の日本語テキスト認識
+     * （モデル同梱版）で読み取り、行ごとのテキストと bounding box を
+     * window.onOcrResult(json) / window.onOcrError(code) で返すブリッジ。
+     * 認識は端末内で完結し、画像やテキストを外部へ送信しない。
+     *
+     * 撮影は MediaStore に作った空エントリの Uri を EXTRA_OUTPUT に渡す方式で、
+     * FileProvider も CAMERA 権限も不要（撮影はカメラアプリへ委譲する）。
+     */
+    class OcrBridge(
+        private val context: Context,
+        private val webView: WebView
+    ) {
+        companion object {
+            // 1001=音声権限、1002=保存（SAF）と衝突しない値
+            const val REQUEST_OCR_CAPTURE = 1003
+            const val REQUEST_OCR_PICK = 1004
+            const val ERROR_CANCELLED = 1
+            const val ERROR_OPEN_FAILED = 2
+            const val ERROR_RECOGNITION_FAILED = 3
+            const val ERROR_NO_APP = 4
+        }
+
+        private var pendingCaptureUri: Uri? = null
+
+        /** カメラアプリを起動してメンバー表を撮影する */
+        @JavascriptInterface
+        fun capture() {
+            val activity = context as? Activity ?: return
+            // startActivityForResult と MediaStore への登録はメインスレッドで行う
+            activity.runOnUiThread {
+                val uri = createCaptureUri()
+                if (uri == null) {
+                    notifyError(ERROR_OPEN_FAILED)
+                    return@runOnUiThread
+                }
+                pendingCaptureUri = uri
+                val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                    putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                    addFlags(
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
+                try {
+                    activity.startActivityForResult(intent, REQUEST_OCR_CAPTURE)
+                } catch (e: Exception) {
+                    deletePendingCapture()
+                    notifyError(ERROR_NO_APP)
+                }
+            }
+        }
+
+        /** 写真（画像ファイル）をドキュメントUIから選ぶ */
+        @JavascriptInterface
+        fun pick() {
+            val activity = context as? Activity ?: return
+            activity.runOnUiThread {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "image/*"
+                }
+                try {
+                    activity.startActivityForResult(intent, REQUEST_OCR_PICK)
+                } catch (e: Exception) {
+                    notifyError(ERROR_NO_APP)
+                }
+            }
+        }
+
+        /** 撮影結果を受け取り、撮影された画像を認識する */
+        fun handleCaptureResult(resultCode: Int) {
+            val uri = pendingCaptureUri
+            pendingCaptureUri = null
+            if (resultCode != Activity.RESULT_OK || uri == null) {
+                // 空エントリが端末に残らないよう掃除してからキャンセルを伝える
+                if (uri != null) {
+                    try {
+                        context.contentResolver.delete(uri, null, null)
+                    } catch (e: Exception) {
+                        // 掃除に失敗しても無視する
+                    }
+                }
+                notifyError(ERROR_CANCELLED)
+                return
+            }
+            recognize(uri)
+        }
+
+        /** 写真選択の結果を受け取り、選ばれた画像を認識する */
+        fun handlePickResult(resultCode: Int, data: Intent?) {
+            val uri = data?.data
+            if (resultCode != Activity.RESULT_OK || uri == null) {
+                notifyError(ERROR_CANCELLED)
+                return
+            }
+            recognize(uri)
+        }
+
+        /** 撮影先として MediaStore に空の画像エントリを作る */
+        private fun createCaptureUri(): Uri? {
+            val values = ContentValues().apply {
+                put(
+                    MediaStore.Images.Media.DISPLAY_NAME,
+                    "member_" + System.currentTimeMillis() + ".jpg"
+                )
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                if (Build.VERSION.SDK_INT >= 29) {
+                    put(
+                        MediaStore.Images.Media.RELATIVE_PATH,
+                        Environment.DIRECTORY_PICTURES + "/MinibasScoresheet"
+                    )
+                }
+            }
+            return try {
+                context.contentResolver.insert(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        private fun deletePendingCapture() {
+            val uri = pendingCaptureUri
+            pendingCaptureUri = null
+            if (uri != null) {
+                try {
+                    context.contentResolver.delete(uri, null, null)
+                } catch (e: Exception) {
+                    // 掃除に失敗しても無視する
+                }
+            }
+        }
+
+        /** Uri から Bitmap を読み込む（EXIF の向きも反映される ImageDecoder 優先） */
+        private fun loadBitmap(uri: Uri): Bitmap? {
+            return try {
+                if (Build.VERSION.SDK_INT >= 28) {
+                    val source = ImageDecoder.createSource(context.contentResolver, uri)
+                    ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                        // ML Kit が読めるようソフトウェアビットマップにする
+                        decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /** 大きすぎる画像はメモリ節約のため縮小する */
+        private fun scaleDown(bitmap: Bitmap): Bitmap {
+            val maxSide = 4096
+            val longest = maxOf(bitmap.width, bitmap.height)
+            if (longest <= maxSide) return bitmap
+            val scale = maxSide.toFloat() / longest
+            return Bitmap.createScaledBitmap(
+                bitmap,
+                (bitmap.width * scale).toInt(),
+                (bitmap.height * scale).toInt(),
+                true
+            )
+        }
+
+        /** ML Kit（日本語・モデル同梱版）で文字認識し、結果を JS へ返す */
+        private fun recognize(uri: Uri) {
+            // 画像の読み込みはバックグラウンドスレッドで行う
+            Thread {
+                val bitmap = loadBitmap(uri)?.let { scaleDown(it) }
+                if (bitmap == null) {
+                    notifyError(ERROR_OPEN_FAILED)
+                    return@Thread
+                }
+                val image = InputImage.fromBitmap(bitmap, 0)
+                val recognizer = TextRecognition.getClient(
+                    JapaneseTextRecognizerOptions.Builder().build()
+                )
+                recognizer.process(image)
+                    .addOnSuccessListener { visionText ->
+                        recognizer.close()
+                        notifyResult(buildLinesJson(visionText))
+                    }
+                    .addOnFailureListener {
+                        recognizer.close()
+                        notifyError(ERROR_RECOGNITION_FAILED)
+                    }
+            }.start()
+        }
+
+        /** 認識結果を行単位（テキスト＋bounding box）の JSON にする */
+        private fun buildLinesJson(visionText: Text): String {
+            val lines = JSONArray()
+            for (block in visionText.textBlocks) {
+                for (line in block.lines) {
+                    val box = line.boundingBox
+                    val obj = JSONObject()
+                    obj.put("text", line.text)
+                    obj.put("left", box?.left ?: 0)
+                    obj.put("top", box?.top ?: 0)
+                    obj.put("right", box?.right ?: 0)
+                    obj.put("bottom", box?.bottom ?: 0)
+                    lines.put(obj)
+                }
+            }
+            val root = JSONObject()
+            root.put("lines", lines)
+            return root.toString()
+        }
+
+        private fun notifyResult(json: String) {
+            val js = "window.onOcrResult && window.onOcrResult(" +
+                JSONObject.quote(json) + ")"
+            (context as? Activity)?.runOnUiThread {
+                webView.evaluateJavascript(js, null)
+            }
+        }
+
+        private fun notifyError(code: Int) {
+            val js = "window.onOcrError && window.onOcrError(" + code + ")"
+            (context as? Activity)?.runOnUiThread {
                 webView.evaluateJavascript(js, null)
             }
         }

@@ -148,6 +148,44 @@
   </div>
 </div>
 
+<!-- メンバー表OCR：撮影／写真選択の選択 -->
+<div id="ocrSourceModal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="ocrSourceTitle">メンバー表を取り込む</h3>
+    <p class="hint">メンバー表を撮影するか、写真から選びます。読み取りは端末の中で行われ、写真や名前が外部に送られることはありません。結果は登録前に確認画面で直せます。</p>
+    <div class="modal-row">
+      <button id="ocrCapture" type="button">📷 撮影する</button>
+      <button id="ocrPick" type="button">🖼 写真から選ぶ</button>
+    </div>
+    <button id="ocrSourceCancel" type="button" class="cancel">キャンセル</button>
+  </div>
+</div>
+
+<!-- メンバー表OCR：読み取り結果の確認 -->
+<div id="ocrModal" class="modal hidden">
+  <div class="modal-box ocr-box">
+    <h3>読み取り結果の確認</h3>
+    <div class="voice-team ocr-team">
+      <span>登録先：</span>
+      <button type="button" id="ocrTeamA" class="vt">チームA</button>
+      <button type="button" id="ocrTeamB" class="vt">チームB</button>
+      <span id="ocrTeamName"></span>
+    </div>
+    <p class="hint">内容を確認し、間違いはその場で直してください。</p>
+    <div class="ocr-head"><span class="c-no">背番号</span><span class="c-name">氏名</span><span class="c-lic">ライセンス下3桁</span><span class="c-del"></span></div>
+    <div id="ocrRows"></div>
+    <button id="ocrAddRow" type="button" class="ocr-add">＋ 行を追加</button>
+    <div id="ocrRawWrap" class="hidden">
+      <h4>読み取れなかった行（参考）</h4>
+      <div id="ocrRaw" class="ocr-raw"></div>
+    </div>
+    <div class="modal-row">
+      <button id="ocrApply" type="button">この内容で登録する</button>
+      <button id="ocrCancel" type="button">やめる</button>
+    </div>
+  </div>
+</div>
+
 <script src="form_b64_0.js"></script>
 <script src="form_b64_1.js"></script>
 <script src="form_b64_2.js"></script>

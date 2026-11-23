@@ -34,5 +34,7 @@ android {
 }
 
 dependencies {
-    // WebView のみの構成のため、追加ライブラリは不要です。
+    // メンバー表のOCR取り込み：ML Kit 日本語テキスト認識（モデル同梱版）
+    // 認識は端末内で完結し、画像やテキストを外部へ送信しない。
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
 }

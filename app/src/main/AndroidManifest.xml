@@ -9,6 +9,15 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <!-- メンバー表の撮影（カメラアプリへの委譲）を解決できるようにする -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <!-- メンバー表の写真選択（ドキュメントUI）を解決できるようにする -->
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT" />
+            <data android:mimeType="image/*" />
+        </intent>
     </queries>
 
     <application
