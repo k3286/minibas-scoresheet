@@ -171,6 +171,9 @@ button.practice-open {
     display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
     column-gap: 14px; align-items: start;
   }
+  /* タブレットでは両チームをそのまま並べるので、チーム切替ボタンは不要 */
+  #recSwitch { display: none; }
+  #recordPanels .team-panel.panel-hidden { display: block; }
   #tab-record > *:not(#recordSheetSide) { grid-column: 1; }
   #recordSheetSide {
     display: block; grid-column: 2; grid-row: 6 / span 2;
