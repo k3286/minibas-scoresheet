@@ -25,7 +25,7 @@ function defaultState() {
       crewChief: '', umpire: '', scorer: '', timer: '', aScorer: '', shotClock: '',
       use3pt: false, finished: false
     },
-    teams: { A: emptyTeam('白'), B: emptyTeam('') },
+    teams: { A: emptyTeam('白'), B: emptyTeam('青') },
     quarter: '1',
     events: [],        // {team, idx, no, pts, q} 得点イベント（時系列）
     fouls: [],         // {team, who: 選手index | 'coach' | 'acoach', type, q}
@@ -42,6 +42,8 @@ function load() {
     if (!raw) return null;
     var s = JSON.parse(raw);
     if (!s || !s.teams || !s.game) return null;
+    // 旧データ移行: Bチームの色が空なら初期値の「青」を補う（A=白と対の扱い）
+    if (s.teams.B && !s.teams.B.color) s.teams.B.color = '青';
     return s;
   } catch (e) { return null; }
 }
