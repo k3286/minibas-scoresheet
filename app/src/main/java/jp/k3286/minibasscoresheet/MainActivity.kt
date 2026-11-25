@@ -19,7 +19,10 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Base64
+import android.app.AlertDialog
 import android.webkit.JavascriptInterface
+import android.webkit.JsResult
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -52,6 +55,29 @@ class MainActivity : Activity() {
 
         webView = findViewById(R.id.webView)
         webView.webViewClient = WebViewClient()
+        // JavaScript の confirm()/alert() を Android のダイアログで表示する。
+        // これが無いと WebView では confirm() が常に false を返してしまい、
+        // 確認が必要な操作（クォーター切替時のスコア確認、「新しい試合」、
+        // 記録の削除など）がスマホでは一切できなくなる。
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                AlertDialog.Builder(this@MainActivity)
+                    .setMessage(message)
+                    .setPositiveButton("OK") { _, _ -> result?.confirm() }
+                    .setNegativeButton("キャンセル") { _, _ -> result?.cancel() }
+                    .setOnCancelListener { result?.cancel() }
+                    .show()
+                return true
+            }
+            override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                AlertDialog.Builder(this@MainActivity)
+                    .setMessage(message)
+                    .setPositiveButton("OK") { _, _ -> result?.confirm() }
+                    .setOnCancelListener { result?.confirm() }
+                    .show()
+                return true
+            }
+        }
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true // localStorage による自動保存

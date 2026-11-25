@@ -26,6 +26,13 @@
 
 <div id="voiceStatus" class="voice-status noprint" role="status"></div>
 
+<div id="practiceBanner" class="practice-banner noprint" style="display:none">
+  <span>🎓 れんしゅうモード中（本番のデータには影響しません）</span>
+  <button type="button" id="btnExitPractice">本番に戻る</button>
+</div>
+
+<div id="voiceToast" class="voice-toast noprint" style="display:none"></div>
+
 <main>
   <!-- ===== 試合情報 ===== -->
   <section id="tab-info" class="tabpage active">
@@ -53,8 +60,15 @@
       <label class="check"><input type="checkbox" id="gFinished"> 試合終了（最終スコアを確定）</label>
     </div>
     <div class="danger-zone">
-      <button id="btnNewGame" type="button" class="danger">新しい試合（全データを消去）</button>
+      <button id="btnNewGame" type="button" class="danger">新しい試合（今の試合は過去の試合に自動保存）</button>
     </div>
+    <div id="practiceSection">
+      <h2>れんしゅうモード</h2>
+      <p class="hint">架空の試合（さくらミニバス対ひまわりミニバス）で、得点やファウルの入力を練習できます。本番のデータには影響しません。子どもや初めてテーブルオフィシャルをする人の練習にどうぞ。</p>
+      <button id="btnPractice" type="button" class="practice-open">🎓 れんしゅうモードで開く</button>
+    </div>
+    <h2>過去の試合</h2>
+    <div id="archiveList"></div>
   </section>
 
   <!-- ===== 選手登録 ===== -->

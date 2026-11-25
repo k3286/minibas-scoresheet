@@ -7,6 +7,15 @@
 'use strict';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
+var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
+var ARCHIVE_KEY = 'minibas-scoresheet-archive-v1';
+var PRACTICE_ARCHIVE_KEY = 'minibas-scoresheet-practice-archive-v1';
+var MODE_KEY = 'minibas-scoresheet-mode-v1';
+function isPractice() {
+  try { return localStorage.getItem(MODE_KEY) === 'practice'; } catch (e) { return false; }
+}
+function storeKey() { return isPractice() ? PRACTICE_KEY : STORE_KEY; }
+function archiveKey() { return isPractice() ? PRACTICE_ARCHIVE_KEY : ARCHIVE_KEY; }
 
 /* ---------- 状態 ---------- */
 function emptyPlayer() { return { no: '', name: '', license: '' }; }
@@ -36,9 +45,9 @@ function defaultState() {
     history: []
   };
 }
-function load() {
+function loadFrom(key) {
   try {
-    var raw = localStorage.getItem(STORE_KEY);
+    var raw = localStorage.getItem(key);
     if (!raw) return null;
     var s = JSON.parse(raw);
     if (!s || !s.teams || !s.game) return null;
@@ -47,9 +56,10 @@ function load() {
     return s;
   } catch (e) { return null; }
 }
+function load() { return loadFrom(storeKey()); }
 var S = load() || defaultState();
 function save() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {}
+  try { localStorage.setItem(storeKey(), JSON.stringify(S)); } catch (e) {}
 }
 function snapshot() {
   S.history.push(JSON.stringify({
@@ -113,7 +123,13 @@ function bindInfo() {
   c3.onchange = function () { S.game.use3pt = c3.checked; save(); renderRecord(); };
   var cf = document.getElementById('gFinished');
   cf.checked = !!S.game.finished;
-  cf.onchange = function () { S.game.finished = cf.checked; save(); renderSheet(); };
+  cf.onchange = function () {
+    /* 同点のままの試合終了はあり得ない（延長が必要）ので確認する（警告のみ） */
+    if (cf.checked && totalScore('A') === totalScore('B')) {
+      if (!confirm('同点です。ミニバスでは延長が必要です。\nこのまま試合終了にしますか？')) { cf.checked = false; return; }
+    }
+    S.game.finished = cf.checked; save(); renderSheet();
+  };
 }
 
 /* ---------- 選手登録 ---------- */
@@ -168,6 +184,33 @@ document.getElementById('quarterBtns').addEventListener('click', function (e) {
   var b = e.target.closest('button[data-q]');
   if (!b) return;
   var changed = S.quarter !== b.dataset.q;
+  if (changed) {
+    /* 前のQに得点が入っている状態で先のQへ進むときだけ、スコア確認を出す */
+    var ORDER = { '1': 1, '2': 2, '3': 3, '4': 4, 'OT': 5 };
+    var cur = S.quarter;
+    /* Q3→Q4: ミニバスでは Q3 が終わるまでに登録10人以上のチームは
+       10人以上の出場が必要。満たしていないチームがあれば警告する（警告のみ） */
+    if (cur === '3' && b.dataset.q === '4') {
+      var short = [];
+      ['A', 'B'].forEach(function (t) {
+        var reg = registeredList(t);
+        if (reg.length < 10) return;
+        var played = 0;
+        reg.forEach(function (x) {
+          var pp = S.participation[t][x.i] || {};
+          if (pp['1'] || pp['2'] || pp['3']) played++;
+        });
+        if (played < 10) short.push('チーム' + t + '（' + (S.teams[t].name || '未入力') + '）：出場 ' + played + '人');
+      });
+      if (short.length && !confirm('ミニバスでは、Q3が終わるまでに10人以上の出場が必要です。\n' + short.join('\n') + '\nこのままQ4に進みますか？')) return;
+    }
+    var curHasEvents = S.events.some(function (ev) { return ev.q === cur; });
+    if (ORDER[b.dataset.q] > ORDER[cur] && curHasEvents) {
+      var msg = qLabel(cur) + 'を終了しますか？\n現在のスコア\n' +
+        (S.teams.A.name || 'チームA') + ' ' + totalScore('A') + ' - ' + totalScore('B') + ' ' + (S.teams.B.name || 'チームB');
+      if (!confirm(msg)) return;
+    }
+  }
   S.quarter = b.dataset.q;
   document.querySelectorAll('#quarterBtns button').forEach(function (x) {
     x.classList.toggle('active', x.dataset.q === S.quarter);
@@ -400,17 +443,18 @@ function renderRecord() {
           var ptsBtns = '<button type="button" class="pts" data-act="score" data-team="' + t + '" data-idx="' + i + '" data-pts="1">+1</button> ' +
             '<button type="button" class="pts" data-act="score" data-team="' + t + '" data-idx="' + i + '" data-pts="2">+2</button>' +
             (S.game.use3pt ? ' <button type="button" class="pts" data-act="score" data-team="' + t + '" data-idx="' + i + '" data-pts="3">+3</button>' : '');
-          return '<tr' + (fc >= 5 ? ' class="out"' : '') + '>' +
+          return '<tr' + (fc >= 5 ? ' class="out"' : (fc === 4 ? ' class="warn4"' : '')) + '>' +
             '<td><button type="button" class="play' + (part ? ' on' : '') + '" data-act="play" data-team="' + t + '" data-idx="' + i + '">' + playLabel + '</button></td>' +
             '<td class="pname"><span class="pno">' + esc(p.no || '―') + '</span> ' + esc(p.name) +
             (playerHasPlayed(t, i) ? '' : ' <span class="notyet">未出場</span>') +
-            (fc ? ' <span class="foulcount">F' + fc + (fc >= 5 ? '（退場）' : '') + '</span>' : '') + '</td>' +
+            (fc ? ' <span class="foulcount">F' + fc + (fc >= 5 ? '（退場）' : '') + '</span>' : '') +
+            (fc === 4 ? ' <span class="foulwarn">あと1回</span>' : '') + '</td>' +
             '<td>' + ptsBtns + '</td>' +
             '<td><button type="button" class="foul" data-act="foul" data-team="' + t + '" data-idx="' + i + '">F</button></td></tr>';
         }).join('') + '</tbody></table>';
     }
-    return '<div class="team-panel">' +
-      '<header><h3>チーム' + t + '：' + esc(team.name || '（未入力）') + '</h3>' +
+    return '<div class="team-panel panel-' + (t === 'A' ? 'a' : 'b') + '">' +
+      '<header><h3>チーム' + t + '：' + esc(team.name || '（未入力）') + (team.color ? '（' + esc(team.color) + '）' : '') + '</h3>' +
       '<span class="score-now">' + totalScore(t) + '</span>' +
       '<span class="panel-btns">' +
       '<button type="button" data-act="to" data-team="' + t + '">タイムアウト</button>' +
@@ -428,15 +472,27 @@ function nextSeq() {
   if (typeof S.seqNext !== 'number' || S.seqNext < 1) S.seqNext = 1;
   return S.seqNext++;
 }
+/* 5ファウルで退場した選手への記録は公式ルールではあり得ないので確認する
+   （警告のみ。訂正などの事情があれば「OK」でそのまま記録できる） */
+function confirmOutPlayer(team, idx) {
+  if (typeof idx !== 'number') return true;
+  if (playerFouls(team, idx).length < 5) return true;
+  var p = S.teams[team].players[idx] || {};
+  return confirm((p.no ? p.no + '番 ' : '') + (p.name || 'この選手') +
+    ' は5ファウルで退場しています。\nこのまま記録しますか？');
+}
 function addScore(team, idx, pts) {
+  if (!confirmOutPlayer(team, idx)) return false;
   snapshot();
   S.events.push({ team: team, idx: idx, no: S.teams[team].players[idx].no, pts: pts, q: S.quarter, seq: nextSeq() });
   // 得点した選手は出場扱い（未設定なら途中出場の ＼）
   var part = S.participation[team][idx] || (S.participation[team][idx] = {});
   if (!part[S.quarter]) part[S.quarter] = 'i';
   save(); renderRecord();
+  return true;
 }
 function addFoul(team, who, type) {
+  if (typeof who === 'number' && !confirmOutPlayer(team, who)) return false;
   snapshot();
   S.fouls.push({ team: team, who: who, type: type, q: S.quarter, seq: nextSeq() });
   if (typeof who === 'number') {
@@ -444,6 +500,7 @@ function addFoul(team, who, type) {
     if (!part[S.quarter]) part[S.quarter] = 'i';
   }
   save(); renderRecord();
+  return true;
 }
 
 document.getElementById('recordPanels').addEventListener('click', function (e) {
@@ -454,6 +511,8 @@ document.getElementById('recordPanels').addEventListener('click', function (e) {
     addScore(t, Number(b.dataset.idx), Number(b.dataset.pts));
   } else if (act === 'play') {
     var i2 = Number(b.dataset.idx);
+    var curMark = (S.participation[t][i2] || {})[q];
+    if (!curMark && !confirmOutPlayer(t, i2)) return;
     snapshot();
     var pr = S.participation[t][i2] || (S.participation[t][i2] = {});
     pr[q] = !pr[q] ? 's' : (pr[q] === 's' ? 'i' : undefined);
@@ -1002,7 +1061,7 @@ function drawSheetCanvas() {
   });
   /* Bチームのユニフォーム色（Aの「（白）」は印刷済み。Bは括弧内が空白のため描く） */
   if (teams.B.color) {
-    textC(ctx, 838, 2172, teams.B.color, 44, COL_BLACK);
+    textC(ctx, 881, 2172, teams.B.color, 44, COL_BLACK);
   }
 
   /* ---------- チームファウル（×印） ---------- */
@@ -1413,10 +1472,125 @@ function saveSheetPdf() {
 document.getElementById('btnSaveImage').addEventListener('click', saveSheetImage);
 document.getElementById('btnSavePdf').addEventListener('click', saveSheetPdf);
 document.getElementById('btnUndo').addEventListener('click', undo);
+/* ---------- れんしゅうモード ----------
+   本番データ（STORE_KEY）とは別の保存先を使い、架空のサンプル試合で
+   自由に練習できる。子どもや初めてのTOが本番前に触るためのモード。 */
+function practiceSeed() {
+  var s = JSON.parse('{"game":{"tournament":"れんしゅうカップ","date":"","time":"","venue":"みどり小学校","gameNo":"","endTime":"","crewChief":"","umpire":"","scorer":"","timer":"","aScorer":"","shotClock":"","use3pt":false,"finished":false},"teams":{"A":{"name":"さくらミニバス","color":"白","coach":{"name":"佐々木 健","license":"047"},"acoach":{"name":"中村 翔","license":"059"},"players":[{"no":"4","name":"佐藤さくら","license":"101"},{"no":"5","name":"鈴木あおい","license":"102"},{"no":"6","name":"高橋ゆい","license":"103"},{"no":"7","name":"田中りん","license":"104"},{"no":"8","name":"伊藤めい","license":"105"},{"no":"9","name":"渡辺ほのか","license":"106"},{"no":"10","name":"山本ことね","license":"107"},{"no":"11","name":"中村すず","license":"108"},{"no":"12","name":"小林はな","license":"109"},{"no":"13","name":"加藤ゆず","license":"110"},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""}]},"B":{"name":"ひまわりミニバス","color":"青","coach":{"name":"高田 修","license":"078"},"acoach":{"name":"青木 翔","license":"082"},"players":[{"no":"4","name":"山田みく","license":"201"},{"no":"5","name":"佐々木れな","license":"202"},{"no":"6","name":"井上かえで","license":"203"},{"no":"7","name":"山口つむぎ","license":"204"},{"no":"8","name":"松本しおり","license":"205"},{"no":"9","name":"木村のぞみ","license":"206"},{"no":"10","name":"林あかり","license":"207"},{"no":"11","name":"清水まお","license":"208"},{"no":"12","name":"森ことり","license":"209"},{"no":"13","name":"石川るな","license":"210"},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""}]}},"quarter":"1","events":[],"fouls":[],"participation":{"A":{},"B":{}},"timeouts":{"A":{},"B":{}},"toSeq":{"A":{},"B":{}},"seqNext":1,"history":[]}');
+  var d = new Date();
+  function p2(n) { return (n < 10 ? '0' : '') + n; }
+  s.game.date = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+  return s;
+}
+function refreshAll() {
+  bindInfo(); renderRoster(); renderRecord(); renderSheet(); renderFix(); renderArchive(); updatePracticeUI();
+}
+function updatePracticeUI() {
+  var p = isPractice();
+  var banner = document.getElementById('practiceBanner');
+  if (banner) banner.style.display = p ? 'flex' : 'none';
+  var sec = document.getElementById('practiceSection');
+  if (sec) sec.style.display = p ? 'none' : '';
+}
+function stateHasPlayers(st) {
+  if (!st || !st.teams) return false;
+  return ['A', 'B'].some(function (t) {
+    return (st.teams[t].players || []).some(function (p) {
+      return ((p.no || '') + '').trim() || ((p.name || '') + '').trim();
+    });
+  });
+}
+function enterPractice() {
+  try { localStorage.setItem(MODE_KEY, 'practice'); } catch (e) {}
+  var st = loadFrom(PRACTICE_KEY);
+  /* 練習データが空（選手が一人もいない）ときは、見本の選手で入れ直す。
+     「新しい試合」で空の状態が保存されてしまっても、入り直せば復活する */
+  if (!st || (!stateHasPlayers(st) && !(st.events || []).length)) st = practiceSeed();
+  S = st;
+  save(); refreshAll();
+  voiceStatus('れんしゅうモードです。本番のデータには影響しません');
+}
+function exitPractice() {
+  try { localStorage.removeItem(MODE_KEY); } catch (e) {}
+  S = loadFrom(STORE_KEY) || defaultState();
+  refreshAll();
+  voiceStatus('本番データに戻りました');
+}
+document.getElementById('btnPractice').addEventListener('click', enterPractice);
+document.getElementById('btnExitPractice').addEventListener('click', exitPractice);
+
+/* ---------- 過去の試合（アーカイブ） ----------
+   「新しい試合」を始めるとき、入力済みの試合を自動でここに残す。
+   PDF保存を忘れても記録が消えないようにするため。最大20試合。 */
+function gameHasContent(s) {
+  return !!(s.events.length || s.fouls.length || s.teams.A.name || s.teams.B.name || s.game.tournament);
+}
+function loadArchive() {
+  try {
+    var a = JSON.parse(localStorage.getItem(archiveKey()) || '[]');
+    return Array.isArray(a) ? a : [];
+  } catch (e) { return []; }
+}
+function saveArchive(a) {
+  try { localStorage.setItem(archiveKey(), JSON.stringify(a)); } catch (e) {}
+}
+function archiveCurrent() {
+  if (!gameHasContent(S)) return;
+  var a = loadArchive();
+  a.unshift({ savedAt: new Date().toISOString(), state: JSON.parse(JSON.stringify(S)) });
+  if (a.length > 20) a = a.slice(0, 20);
+  saveArchive(a);
+}
+function scoreOfState(st, t) {
+  return st.events.filter(function (ev) { return ev.team === t; })
+    .reduce(function (sum, ev) { return sum + ev.pts; }, 0);
+}
+function renderArchive() {
+  var root = document.getElementById('archiveList');
+  if (!root) return;
+  var a = loadArchive();
+  if (!a.length) {
+    root.innerHTML = '<p class="hint">保存された試合はまだありません。「新しい試合」を始めると、入力済みの試合は自動でここに保存されます。</p>';
+    return;
+  }
+  root.innerHTML = a.map(function (item, i) {
+    var st = item.state;
+    var title = (st.game.date || '') + ' ' + (st.game.tournament || '（大会名なし）');
+    var vs = (st.teams.A.name || 'チームA') + ' ' + scoreOfState(st, 'A') + ' - ' + scoreOfState(st, 'B') + ' ' + (st.teams.B.name || 'チームB');
+    return '<div class="archive-item"><div class="archive-main">' + esc(title) + '<br>' + esc(vs) + '</div>' +
+      '<div class="archive-btns"><button type="button" data-arch-open="' + i + '">開く</button>' +
+      '<button type="button" data-arch-del="' + i + '">削除</button></div></div>';
+  }).join('');
+}
+document.getElementById('archiveList').addEventListener('click', function (e) {
+  var openBtn = e.target.closest('[data-arch-open]');
+  var delBtn = e.target.closest('[data-arch-del]');
+  var a = loadArchive();
+  if (delBtn) {
+    var di = Number(delBtn.dataset.archDel);
+    if (!confirm('この保存済みの試合を削除しますか？')) return;
+    a.splice(di, 1); saveArchive(a); renderArchive();
+    return;
+  }
+  if (openBtn) {
+    var oi = Number(openBtn.dataset.archOpen);
+    if (!a[oi]) return;
+    if (!confirm('この試合を開きますか？\n今入力中の試合は「過去の試合」に自動で保存されます。')) return;
+    var target = a[oi].state;
+    a.splice(oi, 1); saveArchive(a);
+    archiveCurrent();
+    S = target;
+    save(); refreshAll();
+    alert('保存した試合を開きました。');
+  }
+});
+
 document.getElementById('btnNewGame').addEventListener('click', function () {
-  if (!confirm('全てのデータを消去して新しい試合を始めます。よろしいですか？')) return;
-  S = defaultState();
-  save(); bindInfo(); renderRoster(); renderRecord(); renderSheet(); renderFix();
+  if (!confirm('新しい試合を始めますか？\n入力済みの試合は「過去の試合」に自動で保存されます。')) return;
+  archiveCurrent();
+  /* 練習モードの「新しい試合」は、空ではなく見本の試合（選手入り）から始める */
+  S = isPractice() ? practiceSeed() : defaultState();
+  save(); bindInfo(); renderRoster(); renderRecord(); renderSheet(); renderFix(); renderArchive();
   alert('新しい試合の入力を始められます。');
 });
 
@@ -1428,9 +1602,22 @@ var voiceTeam = 'A';        // 音声コマンドの対象チーム
 var voiceMode = 'command';  // 'command' | 'dictation'
 var voiceFieldEl = null;    // dictation の入力先フィールド
 
+var voiceToastTimer = null;
 function voiceStatus(msg) {
   var el = document.getElementById('voiceStatus');
   if (el) el.textContent = msg || '';
+  /* 記録が入った・チームが切り替わったときは、結果を大きく一瞬表示する（体育館でも見やすく） */
+  if (msg && (msg.indexOf('追加しました') >= 0 || msg.indexOf('切り替えました') >= 0)) {
+    showVoiceToast(msg.replace(/^音声:『[^』]*』→ /, ''));
+  }
+}
+function showVoiceToast(text) {
+  var t = document.getElementById('voiceToast');
+  if (!t) return;
+  t.textContent = text;
+  t.style.display = 'block';
+  if (voiceToastTimer) clearTimeout(voiceToastTimer);
+  voiceToastTimer = setTimeout(function () { t.style.display = 'none'; }, 2600);
 }
 function voiceAvailable() {
   return !!(window.AndroidVoice && typeof window.AndroidVoice.startRecognition === 'function');
@@ -1524,8 +1711,8 @@ function handleVoiceCommand(rawText) {
   if (m) {
     var fi = findPlayerIdxByNo(voiceTeam, Number(m[1]));
     if (fi < 0) { voiceStatus(heard + m[1] + '番の選手が登録されていません'); return; }
-    addFoul(voiceTeam, fi, 'P');
-    voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番にファウル（P）を追加しました');
+    if (addFoul(voiceTeam, fi, 'P')) voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番にファウル（P）を追加しました');
+    else voiceStatus(heard + '記録しませんでした');
     return;
   }
   /* フリースロー（1点） */
@@ -1533,8 +1720,8 @@ function handleVoiceCommand(rawText) {
   if (m) {
     var si = findPlayerIdxByNo(voiceTeam, Number(m[1]));
     if (si < 0) { voiceStatus(heard + m[1] + '番の選手が登録されていません'); return; }
-    addScore(voiceTeam, si, 1);
-    voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番にフリースローで1点を追加しました');
+    if (addScore(voiceTeam, si, 1)) voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番にフリースローで1点を追加しました');
+    else voiceStatus(heard + '記録しませんでした');
     return;
   }
   /* 得点：「4番 2点」 */
@@ -1548,8 +1735,8 @@ function handleVoiceCommand(rawText) {
     }
     var pi = findPlayerIdxByNo(voiceTeam, Number(m[1]));
     if (pi < 0) { voiceStatus(heard + m[1] + '番の選手が登録されていません'); return; }
-    addScore(voiceTeam, pi, pts);
-    voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番に' + pts + '点を追加しました');
+    if (addScore(voiceTeam, pi, pts)) voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番に' + pts + '点を追加しました');
+    else voiceStatus(heard + '記録しませんでした');
     return;
   }
   voiceStatus(heard + '解釈できませんでした');
@@ -1847,4 +2034,6 @@ renderRoster();
 renderRecord();
 renderFix();
 renderSheet();
+renderArchive();
+updatePracticeUI();
 setVoiceTeam('A');
