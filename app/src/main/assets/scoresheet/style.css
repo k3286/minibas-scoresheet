@@ -168,7 +168,7 @@ button.practice-open {
 #recordSheetSide { display: none; }
 @media (min-width: 820px) {
   #tab-record.active {
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
     column-gap: 14px; align-items: start;
   }
   #tab-record > *:not(#recordSheetSide) { grid-column: 1; }
