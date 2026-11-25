@@ -1525,23 +1525,47 @@ document.getElementById('btnSaveImage').addEventListener('click', saveSheetImage
 document.getElementById('btnSavePdf').addEventListener('click', saveSheetPdf);
 
 /* 公式シートプレビューの拡大・縮小（スマホでは全体表示だと文字が読めないため。
-   表示だけの拡大で、保存される画像・PDFには影響しない） */
+   表示だけの拡大で、保存される画像・PDFには影響しない）
+   「全体を表示」は、シート全体が枠（.sheet-scroll）の中に一度に収まる大きさにする */
 var sheetZoom = 1;
+var sheetFit = false;
 function applySheetZoom() {
   var c = document.getElementById('sheetCanvas');
-  if (c) c.style.width = (sheetZoom * 100) + '%';
   var l = document.getElementById('zoomLabel');
+  if (sheetFit) {
+    var sc = c ? c.parentElement : null;
+    if (c && sc) {
+      /* 枠の内側（パディング20pxを除く）に、縦横ともはみ出さない大きさにする。
+         細長い枠では横幅が、横広い枠では高さが上限になる */
+      var availW = Math.max(100, sc.clientWidth - 20);
+      var availH = Math.max(100, sc.clientHeight - 20);
+      var w = Math.min(availW, availH * (c.width / c.height));
+      c.style.width = Math.floor(w) + 'px';
+      c.style.height = 'auto';
+      c.style.margin = '0 auto';
+    }
+    if (l) l.textContent = '全体';
+    return;
+  }
+  if (c) {
+    c.style.height = '';
+    c.style.margin = '';
+    c.style.width = (sheetZoom * 100) + '%';
+  }
   if (l) l.textContent = Math.round(sheetZoom * 100) + '%';
 }
 document.getElementById('btnZoomIn').addEventListener('click', function () {
+  if (sheetFit) { sheetFit = false; sheetZoom = 1; }
   sheetZoom = Math.min(3, sheetZoom + 0.5); applySheetZoom();
 });
 document.getElementById('btnZoomOut').addEventListener('click', function () {
+  if (sheetFit) { sheetFit = false; sheetZoom = 1; }
   sheetZoom = Math.max(1, sheetZoom - 0.5); applySheetZoom();
 });
 document.getElementById('btnZoomFit').addEventListener('click', function () {
-  sheetZoom = 1; applySheetZoom();
+  sheetFit = true; applySheetZoom();
 });
+window.addEventListener('resize', function () { if (sheetFit) applySheetZoom(); });
 document.getElementById('btnUndo').addEventListener('click', undo);
 /* ---------- れんしゅうモード ----------
    本番データ（STORE_KEY）とは別の保存先を使い、架空のサンプル試合で
