@@ -533,7 +533,7 @@ function addScore(team, idx, pts) {
   // 得点した選手は出場扱い（未設定なら途中出場の ＼）
   var part = S.participation[team][idx] || (S.participation[team][idx] = {});
   if (!part[S.quarter]) part[S.quarter] = 'i';
-  save(); renderRecord();
+  save(); renderRecord(); renderSheet();
   return true;
 }
 function addFoul(team, who, type) {
@@ -544,7 +544,7 @@ function addFoul(team, who, type) {
     var part = S.participation[team][who] || (S.participation[team][who] = {});
     if (!part[S.quarter]) part[S.quarter] = 'i';
   }
-  save(); renderRecord();
+  save(); renderRecord(); renderSheet();
   return true;
 }
 
@@ -562,7 +562,7 @@ document.getElementById('recordPanels').addEventListener('click', function (e) {
     var pr = S.participation[t][i2] || (S.participation[t][i2] = {});
     pr[q] = !pr[q] ? 's' : (pr[q] === 's' ? 'i' : undefined);
     if (!pr[q]) delete pr[q];
-    save(); renderRecord();
+    save(); renderRecord(); renderSheet();
   } else if (act === 'foul') {
     foulTarget = { team: t, who: b.dataset.who !== undefined ? b.dataset.who : Number(b.dataset.idx) };
     openFoulModal();
@@ -576,7 +576,7 @@ document.getElementById('recordPanels').addEventListener('click', function (e) {
     snapshot();
     S.timeouts[t][q].splice(Number(b.dataset.i), 1);
     if (S.toSeq && S.toSeq[t] && S.toSeq[t][q]) S.toSeq[t][q].splice(Number(b.dataset.i), 1);
-    save(); renderRecord();
+    save(); renderRecord(); renderSheet();
   }
 });
 
@@ -621,7 +621,7 @@ document.getElementById('toSave').addEventListener('click', function () {
   sarr.push(nextSeq());
   toTarget = null;
   document.getElementById('toModal').classList.add('hidden');
-  save(); renderRecord();
+  save(); renderRecord(); renderSheet();
 });
 document.getElementById('toCancel').addEventListener('click', function () {
   toTarget = null;
@@ -1302,6 +1302,13 @@ function drawSheetCanvas() {
   }
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  /* タブレット幅では記録タブの横に公式シートを同時表示する（プレビュー用canvasへ複写） */
+  var pv = document.getElementById('sheetPreview');
+  if (pv) {
+    var pctx = pv.getContext('2d');
+    if (pctx) { pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.drawImage(canvas, 0, 0); }
+  }
 }
 
 function renderSheet() {

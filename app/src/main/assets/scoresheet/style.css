@@ -164,6 +164,25 @@ button.practice-open {
 .rec-switch #recTeamB.active { border-color: #1565c0; background: #e9f2fd; color: #0d47a1; box-shadow: inset 0 0 0 1px #1565c0; }
 .team-panel.panel-hidden { display: none; }
 
+/* タブレット幅：記録タブの横に公式シートを同時表示（スマホ幅では出さない） */
+#recordSheetSide { display: none; }
+@media (min-width: 820px) {
+  #tab-record.active {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 14px; align-items: start;
+  }
+  #tab-record > *:not(#recordSheetSide) { grid-column: 1; }
+  #recordSheetSide {
+    display: block; grid-column: 2; grid-row: 1 / -1;
+    position: sticky; top: 8px;
+  }
+  #recordSheetSide .side-title { margin: 2px 0 6px; font-size: 14px; }
+  #sheetPreview {
+    width: 100%; height: auto; display: block; background: #fff;
+    border: 1px solid #bbb; border-radius: 4px;
+  }
+}
+
 /* 音声入力 */
 .voice-status {
   background: #fff8e1; border-bottom: 1px solid #ffe082; color: #5d4037;
