@@ -204,6 +204,24 @@ document.getElementById('quarterBtns').addEventListener('click', function (e) {
       });
       if (short.length && !confirm('ミニバスでは、Q3が終わるまでに10人以上の出場が必要です。\n' + short.join('\n') + '\nこのままQ4に進みますか？')) return;
     }
+    /* Q2→Q3: Q3に入る時点で、Q3終了までの出場条件（登録10人以上なら10人、
+       それ未満なら全員）をまだ満たしていないチームがあれば早めに警告する（警告のみ）。
+       Q3の先発選択で未出場の選手を入れてもらうための知らせ */
+    if (cur === '2' && b.dataset.q === '3') {
+      var short3 = [];
+      ['A', 'B'].forEach(function (t) {
+        var reg = registeredList(t);
+        if (!reg.length) return;
+        var target = Math.min(10, reg.length);
+        var played = 0;
+        reg.forEach(function (x) {
+          var pp = S.participation[t][x.i] || {};
+          if (pp['1'] || pp['2']) played++;
+        });
+        if (played < target) short3.push('チーム' + t + '（' + (S.teams[t].name || '未入力') + '）：出場 ' + played + '人／あと' + (target - played) + '人');
+      });
+      if (short3.length && !confirm('ミニバスでは、Q3が終わるまでに' + '全員（登録10人以上のチームは10人以上）の出場が必要です。\n' + short3.join('\n') + '\n3Qで未出場の選手を出場させてください。\nこのままQ3に進みますか？')) return;
+    }
     var curHasEvents = S.events.some(function (ev) { return ev.q === cur; });
     if (ORDER[b.dataset.q] > ORDER[cur] && curHasEvents) {
       var msg = qLabel(cur) + 'を終了しますか？\n現在のスコア\n' +
@@ -417,6 +435,32 @@ document.getElementById('btnLineup').addEventListener('click', function () {
   openLineup(S.quarter);
 });
 
+/* 記録タブで表示中のチーム（A/B切替式。両チーム分を縦に並べると長すぎるため、
+   選択中のチームだけ大きく表示する。切替ボタンには両チームのスコアを出す） */
+var recordTeam = 'A';
+function recSwitchLabel(t) {
+  var team = S.teams[t];
+  return 'チーム' + t + '：' + esc(team.name || '（未入力）') + (team.color ? '（' + esc(team.color) + '）' : '') +
+    ' <span class="rec-switch-score">' + totalScore(t) + '</span>';
+}
+function applyRecordTeam() {
+  var a = document.getElementById('recTeamA');
+  var b = document.getElementById('recTeamB');
+  if (a) { a.innerHTML = recSwitchLabel('A'); a.classList.toggle('active', recordTeam === 'A'); }
+  if (b) { b.innerHTML = recSwitchLabel('B'); b.classList.toggle('active', recordTeam === 'B'); }
+  var pa = document.querySelector('#recordPanels .panel-a');
+  var pb = document.querySelector('#recordPanels .panel-b');
+  if (pa) pa.classList.toggle('panel-hidden', recordTeam !== 'A');
+  if (pb) pb.classList.toggle('panel-hidden', recordTeam !== 'B');
+}
+function setRecordTeam(t) {
+  recordTeam = t;
+  setVoiceTeam(t);
+  applyRecordTeam();
+}
+document.getElementById('recTeamA').addEventListener('click', function () { setRecordTeam('A'); });
+document.getElementById('recTeamB').addEventListener('click', function () { setRecordTeam('B'); });
+
 function renderRecord() {
   document.querySelectorAll('#quarterBtns button').forEach(function (x) {
     x.classList.toggle('active', x.dataset.q === S.quarter);
@@ -465,6 +509,7 @@ function renderRecord() {
       (participationStatusText(t) ? '<div class="part-status">' + esc(participationStatusText(t)) + '</div>' : '') +
       rows + '</div>';
   }).join('');
+  applyRecordTeam();
 }
 
 /* ---------- 得点・ファウルの追加（ボタン操作と音声入力で共用） ---------- */
@@ -1471,6 +1516,25 @@ function saveSheetPdf() {
 }
 document.getElementById('btnSaveImage').addEventListener('click', saveSheetImage);
 document.getElementById('btnSavePdf').addEventListener('click', saveSheetPdf);
+
+/* 公式シートプレビューの拡大・縮小（スマホでは全体表示だと文字が読めないため。
+   表示だけの拡大で、保存される画像・PDFには影響しない） */
+var sheetZoom = 1;
+function applySheetZoom() {
+  var c = document.getElementById('sheetCanvas');
+  if (c) c.style.width = (sheetZoom * 100) + '%';
+  var l = document.getElementById('zoomLabel');
+  if (l) l.textContent = Math.round(sheetZoom * 100) + '%';
+}
+document.getElementById('btnZoomIn').addEventListener('click', function () {
+  sheetZoom = Math.min(3, sheetZoom + 0.5); applySheetZoom();
+});
+document.getElementById('btnZoomOut').addEventListener('click', function () {
+  sheetZoom = Math.max(1, sheetZoom - 0.5); applySheetZoom();
+});
+document.getElementById('btnZoomFit').addEventListener('click', function () {
+  sheetZoom = 1; applySheetZoom();
+});
 document.getElementById('btnUndo').addEventListener('click', undo);
 /* ---------- れんしゅうモード ----------
    本番データ（STORE_KEY）とは別の保存先を使い、架空のサンプル試合で
@@ -1508,13 +1572,15 @@ function enterPractice() {
   if (!st || (!stateHasPlayers(st) && !(st.events || []).length)) st = practiceSeed();
   S = st;
   save(); refreshAll();
-  voiceStatus('れんしゅうモードです。本番のデータには影響しません');
+  /* 練習モードの知らせは緑の帯（practiceBanner）で常時分かるので、
+     黄色い音声ステータス欄には残さない（帯の二重表示を避ける） */
+  voiceStatus('');
 }
 function exitPractice() {
   try { localStorage.removeItem(MODE_KEY); } catch (e) {}
   S = loadFrom(STORE_KEY) || defaultState();
   refreshAll();
-  voiceStatus('本番データに戻りました');
+  voiceStatus('');
 }
 document.getElementById('btnPractice').addEventListener('click', enterPractice);
 document.getElementById('btnExitPractice').addEventListener('click', exitPractice);
@@ -1628,6 +1694,8 @@ function teamLabel(t) {
 }
 function setVoiceTeam(t) {
   voiceTeam = t;
+  /* 音声の対象チームと記録タブの表示チームは揃える（今どちらのチームを扱っているか迷わないように） */
+  if (recordTeam !== t) { recordTeam = t; applyRecordTeam(); }
   var a = document.getElementById('voiceTeamA');
   var b = document.getElementById('voiceTeamB');
   if (a) a.classList.toggle('active', t === 'A');

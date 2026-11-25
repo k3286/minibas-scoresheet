@@ -104,6 +104,10 @@
       <span class="hint">現在のクォーターの先発5人を選ぶ画面を開きます（選び直しもできます）。</span>
     </div>
     <p class="hint">出場ボタンはタップで切り替わります（未出場 → ／先発 → ＼途中出場）。得点した選手は自動で出場扱いになります。</p>
+    <div class="rec-switch" id="recSwitch">
+      <button type="button" id="recTeamA" class="rec-team active"></button>
+      <button type="button" id="recTeamB" class="rec-team"></button>
+    </div>
     <div id="recordPanels"></div>
   </section>
 
@@ -120,6 +124,12 @@
       <button id="btnSaveImage" type="button">🖼 画像として保存</button>
       <button id="btnSavePdf" type="button">📄 PDFで保存</button>
       <span class="hint">JBA公式様式の画像の上に、記録した内容をそのまま描いたシートです。PDFや画像で保存できます。</span>
+    </div>
+    <div class="sheet-zoom noprint">
+      <button id="btnZoomOut" type="button">－ 縮小</button>
+      <span id="zoomLabel">100%</span>
+      <button id="btnZoomIn" type="button">＋ 拡大</button>
+      <button id="btnZoomFit" type="button">全体を表示</button>
     </div>
     <div class="sheet-scroll">
       <canvas id="sheetCanvas" width="2481" height="3509"></canvas>

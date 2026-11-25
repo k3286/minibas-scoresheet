@@ -89,7 +89,7 @@ table.record button {
   background: #e3f2fd; color: #1565c0;
 }
 table.record button.pts { background: #e65100; color: #fff; min-width: 40px; }
-table.record button.foul { background: #fff3e0; color: #c62828; border: 1px solid #ef9a9a; }
+table.record button.foul { background: #fff; color: #c62828; border: 2px solid #c62828; min-width: 48px; padding: 12px 10px; font-size: 15px; }
 table.record button.play { background: #f1f8e9; color: #33691e; border: 1px solid #aed581; min-width: 44px; }
 table.record button.play.on { background: #33691e; color: #fff; }
 table.record .foulcount { color: #c62828; font-size: 12px; }
@@ -145,7 +145,24 @@ button.practice-open {
 .modal-row #toSave { background: #e65100; color: #fff; border: none; font-weight: bold; }
 .sheet-actions { margin-bottom: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sheet-actions button { background: #e65100; color: #fff; border: none; padding: 11px 16px; border-radius: 8px; font-size: 15px; font-weight: bold; }
-.sheet-scroll { overflow-x: auto; background: #888; padding: 10px; border-radius: 8px; }
+.sheet-scroll { overflow: auto; max-height: 78vh; background: #888; padding: 10px; border-radius: 8px; }
+.sheet-zoom { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.sheet-zoom button {
+  background: #fff; color: #e65100; border: 2px solid #e65100; border-radius: 8px;
+  padding: 8px 12px; font-size: 14px; font-weight: bold;
+}
+.sheet-zoom #zoomLabel { font-weight: bold; min-width: 48px; text-align: center; }
+
+/* 記録タブのチーム切替（選択中のチームだけ表示し、ページの縦の長さを抑える） */
+.rec-switch { display: flex; gap: 8px; margin-bottom: 10px; }
+.rec-switch .rec-team {
+  flex: 1; padding: 11px 8px; font-size: 14px; font-weight: bold; color: #555;
+  background: #fff; border: 2px solid #bdbdbd; border-radius: 8px;
+}
+.rec-switch .rec-team .rec-switch-score { font-size: 20px; margin-left: 4px; }
+.rec-switch #recTeamA.active { border-color: #616161; background: #f5f5f5; color: #212121; box-shadow: inset 0 0 0 1px #616161; }
+.rec-switch #recTeamB.active { border-color: #1565c0; background: #e9f2fd; color: #0d47a1; box-shadow: inset 0 0 0 1px #1565c0; }
+.team-panel.panel-hidden { display: none; }
 
 /* 音声入力 */
 .voice-status {
@@ -169,8 +186,8 @@ button.practice-open {
 }
 .voice-team .vt.active { background: #1565c0; color: #fff; }
 .mic-btn {
-  background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px;
-  padding: 5px 9px; font-size: 14px; line-height: 1;
+  background: #f5f7fa; border: 1px solid #cfd8dc; border-radius: 6px;
+  padding: 3px 6px; font-size: 12px; line-height: 1; opacity: .85;
 }
 .input-row { display: flex; gap: 6px; align-items: center; }
 .input-row input { flex: 1; min-width: 0; }
