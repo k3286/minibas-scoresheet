@@ -174,15 +174,18 @@ button.practice-open {
   #tab-record > *:not(#recordSheetSide) { grid-column: 1; }
   #recordSheetSide {
     display: block; grid-column: 2; grid-row: 6 / span 2;
-    position: sticky; top: 8px;
+    /* アプリバー（45px）＋タブ（約48px）の下に張り付くようにする。
+       top が小さいとシートの上端（ロゴ部分）がタブの裏に隠れてしまう */
+    position: sticky; top: 100px;
   }
   #recordSheetSide .side-title { margin: 2px 0 6px; font-size: 14px; }
   #sheetPreview {
     width: 100%; height: auto; display: block; background: #fff;
     border: 1px solid #bbb; border-radius: 4px;
     /* シート全体が必ず画面に収まるよう、高さを画面内に制限して全体表示する。
-       sticky と合わせて、下へスクロールしてもシート全体が常に見える */
-    max-height: calc(100vh - 48px); object-fit: contain;
+       sticky と合わせて、下へスクロールしてもシート全体が常に見える。
+       140px は張り付き位置（100px）＋見出し＋下の余白の分 */
+    max-height: calc(100vh - 140px); object-fit: contain;
   }
 }
 
