@@ -180,6 +180,9 @@ button.practice-open {
   #sheetPreview {
     width: 100%; height: auto; display: block; background: #fff;
     border: 1px solid #bbb; border-radius: 4px;
+    /* シート全体が必ず画面に収まるよう、高さを画面内に制限して全体表示する。
+       sticky と合わせて、下へスクロールしてもシート全体が常に見える */
+    max-height: calc(100vh - 48px); object-fit: contain;
   }
 }
 
