@@ -9,17 +9,31 @@
 </head>
 <body>
 
-<!-- 起動時のバインダー表紙（タップでも開く。app.js の binderIntro が外す） -->
+<!-- 起動時のバインダー表紙（タップでも開く。app.js の binderIntro が外す）
+     表紙の絵柄は起動ごとにランダム（ダンク／ボール／コート／レア金） -->
 <div id="binderCover">
-  <div class="binder-spine">
-    <span class="binder-ring"></span>
-    <span class="binder-ring"></span>
-    <span class="binder-ring"></span>
-  </div>
+  <div class="binder-clip"><span class="clip-ring"></span></div>
+  <img class="cover-art art-dunk" src="cover_dunk.svg" alt="">
+  <svg class="cover-art art-ball" viewBox="0 0 200 200" aria-hidden="true">
+    <circle cx="100" cy="100" r="96" class="ball-body"/>
+    <path d="M4 100 H196" class="ball-seam"/>
+    <path d="M100 4 V196" class="ball-seam"/>
+    <path d="M16 40 Q100 98 184 40" class="ball-seam"/>
+    <path d="M16 160 Q100 102 184 160" class="ball-seam"/>
+    <path d="M40 16 Q98 100 40 184" class="ball-seam"/>
+    <path d="M160 16 Q102 100 160 184" class="ball-seam"/>
+  </svg>
+  <svg class="cover-art art-court" viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g fill="none" stroke="rgba(255,255,255,.20)" stroke-width="3">
+      <line x1="0" y1="350" x2="400" y2="350"/>
+      <circle cx="200" cy="350" r="88"/>
+      <path d="M52 700 L52 512 Q200 428 348 512 L348 700"/>
+      <circle cx="200" cy="566" r="50"/>
+    </g>
+  </svg>
   <div class="binder-main">
-    <div class="binder-ball">🏀</div>
     <div class="binder-title">ミニバス<br>スコアシート</div>
-    <div class="binder-version">バージョン 1.33</div>
+    <div class="binder-version">バージョン 1.34</div>
     <div class="binder-credit">作：バスケおっさん</div>
   </div>
 </div>

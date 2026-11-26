@@ -2861,6 +2861,15 @@ window.onOcrError = function (code) {
 (function binderIntro() {
   var cover = document.getElementById('binderCover');
   if (!cover) return;
+  /* 表紙の絵柄は起動ごとにランダム: ダンク(a)／ボール(b)／コート(c) 各30%、レア金(rare) 10% */
+  var variant = 'a';
+  if (Math.random() < 0.10) {
+    variant = 'rare';
+  } else {
+    variant = ['a', 'b', 'c'][Math.floor(Math.random() * 3)];
+  }
+  cover.classList.add('cover-' + variant);
+  window.__coverVariant = variant;
   var done = false;
   function open() {
     if (done) return;
