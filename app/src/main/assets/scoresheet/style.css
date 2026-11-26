@@ -405,7 +405,7 @@ button.practice-open {
 .cover-art { display: none; position: absolute; }
 .cover-a .art-dunk {
   display: block;
-  height: 43%; top: 10%; left: 50%; transform: translateX(-50%);
+  width: 74%; height: auto; top: 15%; left: 56%; transform: translateX(-50%);
 }
 .cover-b .art-ball {
   display: block; width: 300px; height: 300px; right: -120px; bottom: -120px;
@@ -415,10 +415,18 @@ button.practice-open {
   display: block; inset: 0; width: 100%; height: 100%;
 }
 .cover-rare .binder-main { justify-content: flex-start; padding-top: 10vh; }
-.cover-rare .binder-credit { color: #f5e9c9; text-shadow: 0 1px 5px rgba(0,0,0,.7); opacity: 1; }
+.cover-rare .binder-credit {
+  color: #f5e9c9; opacity: 1; text-shadow: none;
+  left: 50%; right: auto; transform: translateX(-50%);
+  width: max-content; padding: 5px 16px; border-radius: 999px;
+  background: rgba(24,15,3,.55);
+}
 .ball-body { fill: #e07b39; stroke: #4a2e1c; stroke-width: 3; }
 .ball-seam { fill: none; stroke: #4a2e1c; stroke-width: 4; }
-.cover-c .art-court { display: block; inset: 0; width: 100%; height: 100%; }
+.cover-c .art-court {
+  display: block; left: 60px; right: 8px; top: 5%; bottom: 5%;
+  width: auto; height: auto;
+}
 .binder-main {
   flex: 1; position: relative; z-index: 2; color: #fff; text-align: center;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
