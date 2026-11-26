@@ -381,21 +381,25 @@ button.practice-open {
 }
 #binderCover.cover-c { background: linear-gradient(135deg, #262861, #1a1c53 60%, #141539); }
 #binderCover.cover-rare { background: linear-gradient(140deg, #f3d27a, #d4af37 45%, #a87f1f 82%, #caa437); }
-.binder-clip {
-  position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
-  width: 128px; height: 36px; border-radius: 8px; z-index: 3;
-  background: linear-gradient(180deg, #f2f4f6, #b9bfc7 45%, #8f979f 55%, #d6dbe0);
-  box-shadow: 0 2px 5px rgba(0,0,0,.45), inset 0 1px 0 #ffffff;
+.binder-spine {
+  width: 54px; flex: none; position: relative; z-index: 3;
+  background: linear-gradient(90deg, rgba(0,0,0,.38), rgba(0,0,0,.18) 70%, rgba(255,255,255,.07));
+  border-right: 2px solid rgba(255,255,255,.16);
+  display: flex; flex-direction: column;
+  justify-content: space-evenly; align-items: center;
 }
-.clip-ring {
-  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
-  width: 20px; height: 20px; border-radius: 50%;
-  border: 5px solid #c9ced6; background: transparent;
-  box-shadow: 0 1px 2px rgba(0,0,0,.4);
+.cover-rare .binder-spine {
+  background: linear-gradient(90deg, rgba(90,64,0,.35), rgba(90,64,0,.16) 70%, rgba(255,255,255,.20));
+  border-right-color: rgba(90,64,0,.35);
+}
+.binder-ring {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 6px solid #ccd2da; background: rgba(0,0,0,.35);
+  box-shadow: 0 2px 4px rgba(0,0,0,.5), inset 0 1px 2px rgba(0,0,0,.6);
 }
 .cover-art { display: none; position: absolute; }
 .cover-a .art-dunk {
-  display: block; mix-blend-mode: screen;
+  display: block;
   height: 43%; top: 10%; left: 50%; transform: translateX(-50%);
 }
 .cover-b .art-ball, .cover-rare .art-ball {

@@ -2861,12 +2861,28 @@ window.onOcrError = function (code) {
 (function binderIntro() {
   var cover = document.getElementById('binderCover');
   if (!cover) return;
-  /* 表紙の絵柄は起動ごとにランダム: ダンク(a)／ボール(b)／コート(c) 各30%、レア金(rare) 10% */
-  var variant = 'a';
+  /* 表紙の絵柄: ダンク(a)／ボール(b)／コート(c) は「順番ローテーション」で
+     必ず一巡する（完全ランダムだと、たまたま同じ絵柄ばかり続くため）。
+     レア金(rare) だけは毎回10%の抽選で割り込む。 */
+  var COVER_QUEUE_KEY = 'minibas-scoresheet-cover-queue-v1';
+  var variant;
   if (Math.random() < 0.10) {
     variant = 'rare';
   } else {
-    variant = ['a', 'b', 'c'][Math.floor(Math.random() * 3)];
+    var queue = [];
+    try {
+      var qRaw = JSON.parse(localStorage.getItem(COVER_QUEUE_KEY) || '[]');
+      if (Array.isArray(qRaw)) queue = qRaw.filter(function (v) { return v === 'a' || v === 'b' || v === 'c'; });
+    } catch (e) { queue = []; }
+    if (!queue.length) {
+      queue = ['a', 'b', 'c'];
+      for (var qi = queue.length - 1; qi > 0; qi--) {
+        var qj = Math.floor(Math.random() * (qi + 1));
+        var qt = queue[qi]; queue[qi] = queue[qj]; queue[qj] = qt;
+      }
+    }
+    variant = queue.shift();
+    try { localStorage.setItem(COVER_QUEUE_KEY, JSON.stringify(queue)); } catch (e) {}
   }
   cover.classList.add('cover-' + variant);
   window.__coverVariant = variant;
