@@ -42,11 +42,24 @@ function defaultState() {
     events: [],        // {team, idx, no, pts, q} 得点イベント（時系列）
     fouls: [],         // {team, who: 選手index | 'coach' | 'acoach', type, q}
     participation: { A: {}, B: {} }, // idx -> { q: 's'(先発/) | 'i'(途中\) }
-    timeouts: { A: {}, B: {} },      // q -> [経過分, ...]
+    timeouts: { A: {}, B: {} },      // q -> [1]（取得済みの印。各Qに1回まで）
     toSeq: { A: {}, B: {} },         // timeouts と同じ形で、入力順(seq)を並行保持
     seqNext: 1,                      // 次に割り当てる入力順(seq)
     history: []
   };
+}
+/* タイムアウトは「取得済みかどうか」だけを持つ（各Qに1回まで）。
+   旧データ（経過分の配列）は、入っていれば取得済み1件に丸める。 */
+function normalizeTimeouts(s) {
+  if (!s || !s.timeouts) return s;
+  ['A', 'B'].forEach(function (t) {
+    var tos = s.timeouts[t];
+    if (!tos) return;
+    Object.keys(tos).forEach(function (q) {
+      if (Array.isArray(tos[q])) tos[q] = tos[q].length ? [1] : [];
+    });
+  });
+  return s;
 }
 function loadFrom(key) {
   try {
@@ -56,6 +69,7 @@ function loadFrom(key) {
     if (!s || !s.teams || !s.game) return null;
     // 旧データ移行: Bチームの色が空なら初期値の「青」を補う（A=白と対の扱い）
     if (s.teams.B && !s.teams.B.color) s.teams.B.color = '青';
+    normalizeTimeouts(s);
     return s;
   } catch (e) { return null; }
 }
@@ -474,7 +488,7 @@ function renderRecord() {
     var q = S.quarter;
     var tos = (S.timeouts[t][q] || []);
     var chips = tos.map(function (m, i) {
-      return '<span class="chip">' + q + ' ' + m + '分<b data-act="delto" data-team="' + t + '" data-i="' + i + '">×</b></span>';
+      return '<span class="chip">' + q + ' 済<b data-act="delto" data-team="' + t + '" data-i="' + i + '">×</b></span>';
     }).join('');
     var registered = registeredList(t);
     var rows;
@@ -504,7 +518,9 @@ function renderRecord() {
       '<header><h3>チーム' + t + '：' + esc(team.name || '（未入力）') + (team.color ? '（' + esc(team.color) + '）' : '') + '</h3>' +
       '<span class="score-now">' + totalScore(t) + '</span>' +
       '<span class="panel-btns">' +
-      '<button type="button" data-act="to" data-team="' + t + '">タイムアウト</button>' +
+      (timeoutTaken(t, q)
+        ? '<button type="button" disabled title="このクォーターはすでに取っています">タイムアウト済み</button>'
+        : '<button type="button" data-act="to" data-team="' + t + '">タイムアウト</button>') +
       '<button type="button" data-act="foul" data-team="' + t + '" data-who="coach">コーチF</button>' +
       '<button type="button" data-act="foul" data-team="' + t + '" data-who="acoach">AコーチF</button>' +
       '</span></header>' +
@@ -570,11 +586,7 @@ document.getElementById('recordPanels').addEventListener('click', function (e) {
     foulTarget = { team: t, who: b.dataset.who !== undefined ? b.dataset.who : Number(b.dataset.idx) };
     openFoulModal();
   } else if (act === 'to') {
-    toTarget = { team: t };
-    document.getElementById('toModalTitle').textContent =
-      'タイムアウト（チーム' + t + ' / ' + q + '）';
-    document.getElementById('toMinute').value = '';
-    document.getElementById('toModal').classList.remove('hidden');
+    addTimeout(t);
   } else if (act === 'delto') {
     snapshot();
     S.timeouts[t][q].splice(Number(b.dataset.i), 1);
@@ -587,10 +599,13 @@ document.getElementById('recordPanels').addEventListener('click', function (e) {
 var foulTarget = null;
 var FOUL_TYPES_PLAYER = ['P', 'P1', 'P2', 'P3', 'U', 'U1', 'U2', 'T', 'T1', 'D'];
 var FOUL_TYPES_COACH = ['C', 'C1', 'C2', 'B', 'B1', 'B2', 'M', 'M1'];
+var FOUL_DESC_PLAYER = 'P＝パーソナル（通常のファウル）／U＝アンスポーツマンライク／T＝テクニカル／D＝ディスクォリファイイング（即退場）です。後ろの数字は、相手チームに与えるフリースローの本数です（数字なしはフリースローなし）。';
+var FOUL_DESC_COACH = 'C＝コーチ自身のテクニカルファウル／B＝ベンチメンバーのテクニカルファウル／M＝マンツーマンペナルティ（U12・U15のみ）です。後ろの数字は、相手チームに与えるフリースローの本数です（数字なしはフリースローなし）。';
 function openFoulModal() {
   var isCoach = typeof foulTarget.who === 'string';
   document.getElementById('foulModalTitle').textContent =
     'ファウルの種別（チーム' + foulTarget.team + ' / ' + S.quarter + '）';
+  document.getElementById('foulDesc').textContent = isCoach ? FOUL_DESC_COACH : FOUL_DESC_PLAYER;
   var types = isCoach ? FOUL_TYPES_COACH : FOUL_TYPES_PLAYER;
   document.getElementById('foulTypeBtns').innerHTML = types.map(function (ty) {
     return '<button type="button" data-type="' + ty + '">' + ty + '</button>';
@@ -610,26 +625,25 @@ document.getElementById('foulCancel').addEventListener('click', function () {
   document.getElementById('foulModal').classList.add('hidden');
 });
 
-/* ---------- タイムアウト ---------- */
-var toTarget = null;
-document.getElementById('toSave').addEventListener('click', function () {
-  var v = document.getElementById('toMinute').value;
-  if (!toTarget || v === '' || Number(v) < 1) { alert('経過時間（分）を入力してください。'); return; }
+/* ---------- タイムアウト ----------
+   ミニバスでは各クォーターに1回まで。時間（経過分）は記録せず、
+   取ったかどうかだけを記録する。取ったクォーターではボタンが
+   「タイムアウト済み」になって、もう取れない。 */
+function timeoutTaken(team, q) {
+  return ((S.timeouts[team] || {})[q] || []).length > 0;
+}
+function addTimeout(team) {
+  if (timeoutTaken(team, S.quarter)) return false;
   snapshot();
-  var arr = S.timeouts[toTarget.team][S.quarter] || (S.timeouts[toTarget.team][S.quarter] = []);
-  arr.push(Number(v));
+  var arr = S.timeouts[team][S.quarter] || (S.timeouts[team][S.quarter] = []);
+  arr.push(1);
   if (!S.toSeq) S.toSeq = { A: {}, B: {} };
-  if (!S.toSeq[toTarget.team]) S.toSeq[toTarget.team] = {};
-  var sarr = S.toSeq[toTarget.team][S.quarter] || (S.toSeq[toTarget.team][S.quarter] = []);
+  if (!S.toSeq[team]) S.toSeq[team] = {};
+  var sarr = S.toSeq[team][S.quarter] || (S.toSeq[team][S.quarter] = []);
   sarr.push(nextSeq());
-  toTarget = null;
-  document.getElementById('toModal').classList.add('hidden');
   save(); renderRecord(); renderSheet();
-});
-document.getElementById('toCancel').addEventListener('click', function () {
-  toTarget = null;
-  document.getElementById('toModal').classList.add('hidden');
-});
+  return true;
+}
 
 /* ---------- 記録の修正 ----------
    得点・ファウル・タイムアウトを入力順（seq）に1つの一覧で表示し、
@@ -694,8 +708,7 @@ function fixItemText(it) {
       : (f.who === 'coach' ? 'コーチ' : 'Aコーチ');
     return teamLabel(f.team) + ' ' + who + ' ファウル ' + f.type;
   }
-  var arr = (S.timeouts[it.team] || {})[it.q] || [];
-  return teamLabel(it.team) + ' タイムアウト ' + arr[it.ai] + '分';
+  return teamLabel(it.team) + ' タイムアウト';
 }
 /* 得点・ファウル・タイムアウトを横断した統合リスト（入力順） */
 function fixItems() {
@@ -807,9 +820,8 @@ function openEdit(it) {
       '<label class="flabel">ファウルの種別<select id="efType"></select></label>' +
       '<label class="flabel">クォーター<select id="efQ">' + quarterOptions(f.q) + '</select></label>';
   } else {
-    var m = S.timeouts[it.team][it.q][it.ai];
     fields =
-      '<label class="flabel">経過時間（分）<input type="number" id="efMinute" min="1" max="99" inputmode="numeric" value="' + m + '"></label>' +
+      '<p class="hint">タイムアウトは「取ったかどうか」の記録です。ここではクォーターの変更と削除ができます。</p>' +
       '<label class="flabel">クォーター<select id="efQ">' + quarterOptions(it.q) + '</select></label>';
   }
   document.getElementById('editFields').innerHTML = fields;
@@ -848,18 +860,18 @@ document.getElementById('editSave').addEventListener('click', function () {
     f.type = document.getElementById('efType').value;
     f.q = document.getElementById('efQ').value;
   } else {
-    var v = document.getElementById('efMinute').value;
-    if (v === '' || Number(v) < 1) { alert('経過時間（分）を入力してください。'); return; }
     var nq = document.getElementById('efQ').value;
+    if (nq !== t.q && timeoutTaken(t.team, nq)) {
+      alert('そのクォーターは、すでにタイムアウトを取っています。');
+      return;
+    }
     snapshot();
-    if (nq === t.q) {
-      S.timeouts[t.team][t.q][t.ai] = Number(v);
-    } else {
+    if (nq !== t.q) {
       var seq = (S.toSeq[t.team][t.q] || [])[t.ai];
       S.timeouts[t.team][t.q].splice(t.ai, 1);
       if (S.toSeq[t.team][t.q]) S.toSeq[t.team][t.q].splice(t.ai, 1);
       var arr = S.timeouts[t.team][nq] || (S.timeouts[t.team][nq] = []);
-      arr.push(Number(v));
+      arr.push(1);
       var sarr = S.toSeq[t.team][nq] || (S.toSeq[t.team][nq] = []);
       sarr.push(typeof seq === 'number' ? seq : nextSeq());
     }
@@ -1050,15 +1062,13 @@ function drawSheetCanvas() {
     if (team.name) {
       textL(ctx, 235, headCY[tt], team.name, fitSize(ctx, team.name, 46, 540, true), COL_BLACK, true);
     }
-    /* タイムアウト（経過分） */
+    /* タイムアウト（取得済みなら○印） */
     var tos = S.timeouts[tt] || {};
     Object.keys(tos).forEach(function (qq0) {
       var col = toColIdx[qKey(qq0)];
       if (col === undefined) return;
-      var mins = tos[qq0] || [];
-      if (!mins.length) return;
-      var label = mins.map(function (x) { return String(x); }).join('・');
-      textC(ctx, toCols[col], headCY[tt] + 38, label, fitSize(ctx, label, 38, 52, false), COL_BLACK);
+      if (!(tos[qq0] || []).length) return;
+      ellipseOutline(ctx, toCols[col], headCY[tt] + 38, 21, 21, COL_BLACK, 5);
     });
     /* 選手別ファウル（時系列順） */
     var pfouls = {};
@@ -1679,7 +1689,7 @@ document.getElementById('archiveList').addEventListener('click', function (e) {
     var target = a[oi].state;
     a.splice(oi, 1); saveArchive(a);
     archiveCurrent();
-    S = target;
+    S = normalizeTimeouts(target);
     save(); refreshAll();
     alert('保存した試合を開きました。');
   }
@@ -1914,14 +1924,13 @@ function handleVoiceCommand(rawText) {
     voiceStatus(heard + '対象チームをチーム' + nt + '（' + teamLabel(nt) + '）に切り替えました');
     return;
   }
-  /* タイムアウト：経過分は既存の入力モーダルで入れる */
+  /* タイムアウト：その場で記録する（各Qに1回まで） */
   if (s.indexOf('タイムアウト') !== -1) {
-    toTarget = { team: voiceTeam };
-    document.getElementById('toModalTitle').textContent =
-      'タイムアウト（チーム' + voiceTeam + ' / ' + S.quarter + '）';
-    document.getElementById('toMinute').value = '';
-    document.getElementById('toModal').classList.remove('hidden');
-    voiceStatus(heard + 'チーム' + voiceTeam + 'のタイムアウト：経過分を入力してください');
+    if (addTimeout(voiceTeam)) {
+      voiceStatus(heard + 'チーム' + voiceTeam + 'のタイムアウトを記録しました');
+    } else {
+      voiceStatus(heard + 'チーム' + voiceTeam + 'は、このクォーターのタイムアウトをすでに取っています');
+    }
     return;
   }
   /* ファウル（種別は P） */
