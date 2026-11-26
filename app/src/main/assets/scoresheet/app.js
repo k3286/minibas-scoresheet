@@ -2534,12 +2534,22 @@ function handleVoiceCommand(rawText) {
     }
     return;
   }
-  /* ファウル（種別は P） */
-  m = s.match(/(\d+)番.*(ファウル|ファール)/);
-  if (m) {
+  /* ファウル：種別とフリースロー本数も声で指定できる
+     「7番 ファウル」→P、「7番 ファウル 2本」→P2、
+     「7番 アンスポ 2本」→U2、「7番 テクニカル」→T1、
+     「7番 ディスクォリファイイング」→D */
+  m = s.match(/(\d+)番/);
+  if (m && /(ファウル|ファール|アンスポ|テクニカル|ディスクォリファイイング)/.test(s)) {
     var fi = findPlayerIdxByNo(voiceTeam, Number(m[1]));
     if (fi < 0) { voiceStatus(heard + m[1] + '番の選手が登録されていません'); return; }
-    if (addFoul(voiceTeam, fi, 'P')) voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番にファウル（P）を追加しました');
+    var ftn = s.match(/(\d+)本/);
+    var fft = ftn ? Number(ftn[1]) : 0;
+    var ftype;
+    if (s.indexOf('アンスポ') !== -1) ftype = 'U' + (fft >= 1 && fft <= 2 ? fft : '');
+    else if (s.indexOf('テクニカル') !== -1) ftype = 'T1';
+    else if (s.indexOf('ディスクォリファイイング') !== -1) ftype = 'D';
+    else ftype = 'P' + (fft >= 1 && fft <= 3 ? fft : '');
+    if (addFoul(voiceTeam, fi, ftype)) voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番にファウル（' + ftype + '）を追加しました');
     else voiceStatus(heard + '記録しませんでした');
     return;
   }
