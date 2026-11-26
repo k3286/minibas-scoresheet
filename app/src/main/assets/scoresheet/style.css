@@ -285,6 +285,17 @@ button.practice-open {
 
 /* Q開始時：出場メンバー選択 */
 .lineup-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+/* チームファウル表示バー（記録タブ） */
+.tf-bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 2px; }
+.tf-chip { flex: 1 1 150px; display: flex; align-items: baseline; gap: 8px; background: #fff3e0; border: 2px solid #e65100; border-radius: 8px; padding: 8px 12px; }
+.tf-chip .tf-team { font-weight: bold; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-chip .tf-label { color: #6d4c41; font-size: 12px; white-space: nowrap; }
+.tf-chip .tf-num { margin-left: auto; font-size: 26px; font-weight: bold; color: #e65100; line-height: 1; }
+/* 名簿の保存・呼び出しボタンと選択リスト */
+.team-editor .roster-save, .team-editor .roster-load { padding: 9px 12px; border: 1px solid #37474f; color: #37474f; background: #fff; border-radius: 8px; font-size: 14px; margin-right: 8px; }
+.pick-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; max-height: 50vh; overflow-y: auto; }
+.pick-item { text-align: left; padding: 11px 12px; border: 1px solid #999; background: #fff; border-radius: 8px; font-size: 15px; }
+.pick-item .pick-sub { display: block; font-size: 12px; color: #666; margin-top: 2px; }
 #btnLineup {
   background: #33691e; color: #fff; border: none; border-radius: 8px;
   padding: 11px 16px; font-size: 15px; font-weight: bold;

@@ -27,6 +27,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
@@ -43,7 +44,8 @@ import org.json.JSONObject
  * できないことだけをブリッジで Android 側へ委ねます：
  * 印刷（PrintBridge）、音声認識（VoiceBridge）、ファイル保存
  * （SaveBridge）、メンバー表 OCR（OcrBridge）、バックアップ
- * 読み込み（BackupBridge）、画面のスリープ防止（ScreenBridge）。
+ * 読み込み（BackupBridge）、画面のスリープ防止（ScreenBridge）、
+ * シート共有（ShareBridge）。
  * データは WebView の localStorage に自動保存されます。
  */
 class MainActivity : Activity() {
@@ -111,6 +113,8 @@ class MainActivity : Activity() {
         webView.addJavascriptInterface(bb, "AndroidBackup")
         // JavaScript から画面のスリープ防止を切り替えるためのブリッジ
         webView.addJavascriptInterface(ScreenBridge(this), "AndroidScreen")
+        // JavaScript からシート（PDF・画像）を他アプリへ共有するためのブリッジ
+        webView.addJavascriptInterface(ShareBridge(this), "AndroidShare")
 
         webView.loadUrl("file:///android_asset/scoresheet/index.html")
     }
@@ -486,6 +490,54 @@ class MainActivity : Activity() {
                     activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 }
             }
+        }
+    }
+
+    /**
+     * JavaScript 側の window.AndroidShare.shareFile(base64, fileName, mimeType) から呼ばれ、
+     * 受け取ったファイルをキャッシュ領域に置いて FileProvider 経由で
+     * ACTION_SEND の共有シートを開くブリッジ（LINE などへ直接送るため）。
+     * ファイルは共有専用の一時置き場（cacheDir/share）に書き、外部へは
+     * 共有先アプリにだけ一時的な読み取り権限を渡す。
+     */
+    class ShareBridge(private val context: Context) {
+        @JavascriptInterface
+        fun shareFile(base64Data: String, fileName: String, mimeType: String) {
+            val activity = context as? Activity ?: return
+            val bytes = try {
+                Base64.decode(base64Data, Base64.DEFAULT)
+            } catch (e: IllegalArgumentException) {
+                return
+            }
+            // ファイル書き込みはバックグラウンドスレッドで行う
+            Thread {
+                try {
+                    val dir = java.io.File(context.cacheDir, "share")
+                    if (!dir.exists()) dir.mkdirs()
+                    val safeName = fileName.replace(Regex("[/\\\\]"), "_")
+                    val file = java.io.File(dir, safeName)
+                    file.writeBytes(bytes)
+                    val uri = FileProvider.getUriForFile(
+                        context, context.packageName + ".fileprovider", file
+                    )
+                    activity.runOnUiThread {
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = mimeType
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        try {
+                            activity.startActivity(Intent.createChooser(intent, "共有"))
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "共有できるアプリが見つかりませんでした", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    activity.runOnUiThread {
+                        Toast.makeText(context, "共有の準備に失敗しました", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }.start()
         }
     }
 

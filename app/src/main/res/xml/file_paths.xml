@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- シート共有用の一時ファイル置き場（cacheDir/share）だけを公開する -->
+    <cache-path name="share" path="share/" />
+</paths>

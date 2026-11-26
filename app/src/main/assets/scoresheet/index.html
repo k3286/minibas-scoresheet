@@ -76,6 +76,11 @@
       <button id="btnBackupImport" type="button">📂 バックアップから戻す</button>
     </div>
     <input type="file" id="backupFileInput" accept=".json,application/json" style="display:none">
+    <p class="hint">「試合終了」にチェックすると、その時点のデータをアプリ内に自動でも保存します（自動バックアップ、最大3件）。アプリ内のうっかり操作への保険です。端末の故障や機種変更に備えるには、上のファイル書き出しもあわせてどうぞ。</p>
+    <p class="hint" id="autoBackupInfo"></p>
+    <div>
+      <button id="btnAutoBackupRestore" type="button">↩ 自動バックアップから戻す</button>
+    </div>
     <div class="form-grid" style="margin-top:14px">
       <label class="check"><input type="checkbox" id="chkKeepScreenOn"> 試合中は画面を消さない（スリープ防止）</label>
     </div>
@@ -109,6 +114,7 @@
         <button type="button" data-q="OT">OT</button>
       </div>
     </div>
+    <div class="tf-bar" id="tfBar"></div>
     <div class="lineup-bar">
       <button id="btnLineup" type="button">🏀 出場メンバーを選ぶ</button>
       <span class="hint">現在のクォーターの先発5人を選ぶ画面を開きます（選び直しもできます）。</span>
@@ -137,6 +143,8 @@
     <div class="sheet-actions noprint">
       <button id="btnSaveImage" type="button">🖼 画像として保存</button>
       <button id="btnSavePdf" type="button">📄 PDFで保存</button>
+      <button id="btnSharePdf" type="button">📤 PDFを共有</button>
+      <button id="btnShareImage" type="button">📤 画像を共有</button>
       <span class="hint">JBA公式様式の画像の上に、記録した内容をそのまま描いたシートです。PDFや画像で保存できます。</span>
     </div>
     <div class="sheet-zoom noprint">
@@ -153,6 +161,28 @@
 
 <!-- 印刷専用ビュー（canvas画像だけをA4いっぱいに配置） -->
 <div id="printRoot" aria-hidden="true"><img id="printImg" alt=""></div>
+
+<!-- 名簿の呼び出し -->
+<div id="rosterModal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="rosterModalTitle">名簿を呼び出す</h3>
+    <div id="rosterModalList" class="pick-list"></div>
+    <div class="modal-row">
+      <button type="button" class="cancel" id="rosterModalCancel">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 自動バックアップの選択 -->
+<div id="abModal" class="modal hidden">
+  <div class="modal-box">
+    <h3>自動バックアップから戻す</h3>
+    <div id="abModalList" class="pick-list"></div>
+    <div class="modal-row">
+      <button type="button" class="cancel" id="abModalCancel">閉じる</button>
+    </div>
+  </div>
+</div>
 
 <!-- ファウル種別ピッカー -->
 <div id="foulModal" class="modal hidden">

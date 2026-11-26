@@ -150,6 +150,8 @@ function bindInfo() {
       if (!confirm('同点です。ミニバスでは延長が必要です。\nこのまま試合終了にしますか？')) { cf.checked = false; return; }
     }
     S.game.finished = cf.checked; save(); renderSheet();
+    /* 試合終了にしたら、その時点のデータを自動バックアップする（v29） */
+    if (cf.checked && typeof runAutoBackup === 'function') runAutoBackup();
   };
 }
 
@@ -172,6 +174,8 @@ function renderRoster() {
       '<input class="tcolor" data-team="' + t + '" data-field="color" value="' + esc(team.color) + '" placeholder="ユニフォーム色（例：白）">' +
       '</div>' +
       '<div class="row"><button type="button" class="ocr-open" data-ocr-team="' + t + '">📷 メンバー表を取り込む</button></div>' +
+      '<div class="row"><button type="button" class="roster-save" data-roster-save="' + t + '">💾 この名簿を保存</button>' +
+      '<button type="button" class="roster-load" data-roster-load="' + t + '">📂 名簿を呼び出す</button></div>' +
       '<table class="roster"><thead><tr><th style="width:8%">#</th><th style="width:16%">背番号</th><th>選手氏名</th><th style="width:22%">ライセンスNo.<br>下3桁</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table>' +
       '<div class="coach-rows">' +
@@ -196,8 +200,113 @@ document.getElementById('rosterEditors').addEventListener('input', function (e) 
 });
 document.getElementById('rosterEditors').addEventListener('click', function (e) {
   var b = e.target.closest('[data-ocr-team]');
+  if (b) { openOcrSource(b.dataset.ocrTeam); return; }
+  var sv = e.target.closest('[data-roster-save]');
+  if (sv) { saveRosterToLib(sv.dataset.rosterSave); return; }
+  var ld = e.target.closest('[data-roster-load]');
+  if (ld) { openRosterLoad(ld.dataset.rosterLoad); return; }
+});
+
+/* ---------- 名簿の保存・呼び出し ----------
+   いつものチームの名簿をアプリ内に保存しておき、新しい試合で呼び出す。
+   過去の試合の名簿からも呼び出せる。保存先は端末内（localStorage）のみ。 */
+var ROSTER_LIB_KEY = 'minibas-scoresheet-rosters-v1';
+function loadRosterLib() {
+  try {
+    var v = JSON.parse(localStorage.getItem(ROSTER_LIB_KEY) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
+}
+function writeRosterLib(lib) {
+  try { localStorage.setItem(ROSTER_LIB_KEY, JSON.stringify(lib)); } catch (e) {}
+}
+function copyTeam(team) {
+  return JSON.parse(JSON.stringify(team));
+}
+function saveRosterToLib(t) {
+  var team = S.teams[t];
+  var label = team.name || ('チーム' + t);
+  var lib = loadRosterLib();
+  var idx = -1;
+  lib.forEach(function (e, i) { if ((e.team.name || '') === (team.name || '')) idx = i; });
+  if (idx >= 0) {
+    if (!confirm('「' + label + '」の名簿はすでに保存されています。いまの内容で上書きしますか？')) return;
+    lib[idx] = { savedAt: new Date().toISOString(), team: copyTeam(team) };
+  } else {
+    lib.unshift({ savedAt: new Date().toISOString(), team: copyTeam(team) });
+  }
+  writeRosterLib(lib.slice(0, 20));
+  alert('名簿を保存しました：' + label);
+}
+var rosterLoadTarget = 'A';
+function rosterEntryLabel(team) {
+  var n = 0;
+  team.players.forEach(function (p) { if (p.name || p.no) n++; });
+  return (team.name || '（チーム名なし）') + '（選手' + n + '人）';
+}
+function openRosterLoad(t) {
+  rosterLoadTarget = t;
+  document.getElementById('rosterModalTitle').textContent =
+    '名簿を呼び出す（チーム' + t + 'へ）';
+  var list = document.getElementById('rosterModalList');
+  var html = '';
+  var lib = loadRosterLib();
+  lib.forEach(function (e, i) {
+    var d = new Date(e.savedAt);
+    var when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('ja-JP');
+    html += '<button type="button" class="pick-item" data-lib="' + i + '">' +
+      esc(rosterEntryLabel(e.team)) + '<span class="pick-sub">保存した名簿' +
+      (when ? '・' + when : '') + '</span></button>';
+  });
+  var arc = [];
+  try { arc = loadArchive() || []; } catch (e) {}
+  arc.forEach(function (g, gi) {
+    ['A', 'B'].forEach(function (side) {
+      var tm = g.state && g.state.teams ? g.state.teams[side] : null;
+      if (!tm || !(tm.name || tm.players.some(function (p) { return p.name || p.no; }))) return;
+      var sub = '過去の試合';
+      if (g.state.game) {
+        if (g.state.game.date) sub += '・' + g.state.game.date;
+        if (g.state.game.tournament) sub += '・' + g.state.game.tournament;
+      }
+      html += '<button type="button" class="pick-item" data-arc="' + gi + '" data-side="' + side + '">' +
+        esc(rosterEntryLabel(tm)) + '<span class="pick-sub">' + esc(sub) + '</span></button>';
+    });
+  });
+  list.innerHTML = html || '<p class="hint">呼び出せる名簿がまだありません。「この名簿を保存」で保存すると、次から呼び出せます。</p>';
+  document.getElementById('rosterModal').classList.remove('hidden');
+}
+function applyRoster(team) {
+  var t = rosterLoadTarget;
+  var cur = S.teams[t];
+  var has = cur.name || cur.players.some(function (p) { return p.name || p.no; });
+  if (has && !confirm('チーム' + t + 'には入力済みの名簿があります。呼び出した名簿で上書きしますか？')) return;
+  S.teams[t] = copyTeam(team);
+  save();
+  renderRoster();
+  renderRecord();
+  renderSheet();
+  setVoiceTeam(voiceTeam);
+  document.getElementById('rosterModal').classList.add('hidden');
+  alert('名簿を呼び出しました：' + (team.name || ('チーム' + t)));
+}
+document.getElementById('rosterModalList').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-lib], button[data-arc]');
   if (!b) return;
-  openOcrSource(b.dataset.ocrTeam);
+  if (b.dataset.lib !== undefined) {
+    var lib = loadRosterLib();
+    var ent = lib[Number(b.dataset.lib)];
+    if (ent) applyRoster(ent.team);
+    return;
+  }
+  var arc = [];
+  try { arc = loadArchive() || []; } catch (err) {}
+  var g = arc[Number(b.dataset.arc)];
+  var tm = g && g.state && g.state.teams ? g.state.teams[b.dataset.side] : null;
+  if (tm) applyRoster(tm);
+});
+document.getElementById('rosterModalCancel').addEventListener('click', function () {
+  document.getElementById('rosterModal').classList.add('hidden');
 });
 
 /* ---------- 記録 ---------- */
@@ -482,10 +591,34 @@ function setRecordTeam(t) {
 document.getElementById('recTeamA').addEventListener('click', function () { setRecordTeam('A'); });
 document.getElementById('recTeamB').addEventListener('click', function () { setRecordTeam('B'); });
 
+/* そのクォーターのチームファウル数（選手のファウルだけを数える。
+   コーチ・ベンチのテクニカルとマンツーマンペナルティは数えない＝TOの決まり） */
+function teamFoulCount(t, q) {
+  var k = qKey(q);
+  var n = 0;
+  S.fouls.forEach(function (f) {
+    if (f.team === t && f.who !== 'coach' && f.who !== 'acoach' && qKey(f.q) === k) n++;
+  });
+  return n;
+}
+/* 記録タブ上部に、今のクォーターのチームファウル数を大きく出す */
+function updateTfBar() {
+  var el = document.getElementById('tfBar');
+  if (!el) return;
+  var qLabel = S.quarter === 'OT' ? '延長' : ('Q' + S.quarter);
+  el.innerHTML = ['A', 'B'].map(function (t) {
+    var name = S.teams[t].name || ('チーム' + t);
+    return '<span class="tf-chip"><span class="tf-team">' + esc(name) + '</span>' +
+      '<span class="tf-label">' + qLabel + ' チームファウル</span>' +
+      '<span class="tf-num">' + teamFoulCount(t, S.quarter) + '</span></span>';
+  }).join('');
+}
+
 function renderRecord() {
   document.querySelectorAll('#quarterBtns button').forEach(function (x) {
     x.classList.toggle('active', x.dataset.q === S.quarter);
   });
+  updateTfBar();
   var root = document.getElementById('recordPanels');
   root.innerHTML = ['A', 'B'].map(function (t) {
     var team = S.teams[t];
@@ -1653,6 +1786,86 @@ function saveSheetPdf() {
 document.getElementById('btnSaveImage').addEventListener('click', saveSheetImage);
 document.getElementById('btnSavePdf').addEventListener('click', saveSheetPdf);
 
+/* ---------- シートの共有 ----------
+   保存ではなく、LINE などのアプリへ直接送る。Android アプリ内では
+   AndroidShare ブリッジ（ACTION_SEND）を使い、ブラウザでは
+   Web Share API が使えるときだけ使う。 */
+function androidShareAvailable() {
+  return !!(window.AndroidShare && typeof window.AndroidShare.shareFile === 'function');
+}
+function shareBlobAsFile(blob, fileName, mimeType) {
+  if (androidShareAvailable()) {
+    blobToBase64(blob, function (b64) {
+      if (b64) window.AndroidShare.shareFile(b64, fileName, mimeType);
+      else alert('共有の準備に失敗しました。');
+    });
+    return;
+  }
+  if (navigator.share && typeof File === 'function') {
+    var f = new File([blob], fileName, { type: mimeType });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) {
+      navigator.share({ files: [f] }).catch(function () {});
+      return;
+    }
+  }
+  alert('この環境では共有できません。保存してから送ってください。');
+}
+function shareSheetPdf() {
+  drawSheetCanvas();
+  var canvas = document.getElementById('sheetCanvas');
+  if (!canvas) return;
+  var fileName = sheetPdfFileName();
+  function handleJpegBytes(bytes) {
+    if (!bytes) { alert('PDFの作成に失敗しました。'); return; }
+    var pdf = buildSheetPdf(bytes, canvas.width, canvas.height);
+    shareBlobAsFile(new Blob([pdf], { type: 'application/pdf' }), fileName, 'application/pdf');
+  }
+  function fallbackDataUrl() {
+    try {
+      var url = canvas.toDataURL('image/jpeg', 0.92);
+      var b64 = url.slice(url.indexOf(',') + 1);
+      var bin = atob(b64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      handleJpegBytes(bytes);
+    } catch (e) {
+      alert('PDFの作成に失敗しました。');
+    }
+  }
+  if (typeof canvas.toBlob === 'function') {
+    canvas.toBlob(function (blob) {
+      if (!blob) { fallbackDataUrl(); return; }
+      if (typeof blob.arrayBuffer === 'function') {
+        blob.arrayBuffer().then(function (buf) {
+          handleJpegBytes(new Uint8Array(buf));
+        }, fallbackDataUrl);
+      } else {
+        var r = new FileReader();
+        r.onload = function () { handleJpegBytes(new Uint8Array(r.result)); };
+        r.onerror = fallbackDataUrl;
+        r.readAsArrayBuffer(blob);
+      }
+    }, 'image/jpeg', 0.92);
+  } else {
+    fallbackDataUrl();
+  }
+}
+function shareSheetImage() {
+  drawSheetCanvas();
+  var canvas = document.getElementById('sheetCanvas');
+  if (!canvas) return;
+  if (typeof canvas.toBlob === 'function') {
+    canvas.toBlob(function (blob) {
+      if (!blob) { alert('画像の作成に失敗しました。'); return; }
+      shareBlobAsFile(blob, 'scoresheet.png', 'image/png');
+    }, 'image/png');
+  } else {
+    alert('画像の作成に失敗しました。');
+  }
+}
+document.getElementById('btnSharePdf').addEventListener('click', shareSheetPdf);
+document.getElementById('btnShareImage').addEventListener('click', shareSheetImage);
+
 /* 公式シートプレビューの拡大・縮小（スマホでは全体表示だと文字が読めないため。
    表示だけの拡大で、保存される画像・PDFには影響しない）
    「全体を表示」は、シート全体が枠（.sheet-scroll）の中に一度に収まる大きさにする */
@@ -1830,15 +2043,18 @@ function backupStamp() {
   function p(n) { return (n < 10 ? '0' : '') + n; }
   return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
 }
-function exportBackup() {
+function buildBackupPayload() {
   var data = {};
   BACKUP_KEYS.forEach(function (k) {
     try { var v = localStorage.getItem(k); if (v != null) data[k] = v; } catch (e) {}
   });
-  var payload = {
+  return {
     app: 'minibas-scoresheet', kind: 'backup', version: 1,
     exportedAt: new Date().toISOString(), data: data
   };
+}
+function exportBackup() {
+  var payload = buildBackupPayload();
   var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
   saveBlobAsFile(blob, 'minibas-scoresheet-backup-' + backupStamp() + '.json', 'application/json', function () {
     alert('バックアップの書き出しに失敗しました。');
@@ -1899,6 +2115,71 @@ document.getElementById('backupFileInput').addEventListener('change', function (
   reader.onerror = function () { alert('バックアップファイルを開けませんでした。'); };
   reader.readAsText(f);
 });
+
+/* ---------- 自動バックアップ ----------
+   「試合終了」にチェックした時点で、その時点の全データをアプリ内
+   （localStorage）に自動保存する。最大3件。復元はファイルからの
+   復元と同じ検証・確認を通す。端末自体の故障には備えられないので、
+   ファイルへの書き出しと併用する想定。 */
+var AUTOBACKUP_KEY = 'minibas-scoresheet-autobackup-v1';
+function loadAutoBackups() {
+  try {
+    var v = JSON.parse(localStorage.getItem(AUTOBACKUP_KEY) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
+}
+function runAutoBackup() {
+  var list = loadAutoBackups();
+  list.unshift(buildBackupPayload());
+  list = list.slice(0, 3);
+  try { localStorage.setItem(AUTOBACKUP_KEY, JSON.stringify(list)); } catch (e) {}
+  renderAutoBackupInfo();
+}
+function renderAutoBackupInfo() {
+  var el = document.getElementById('autoBackupInfo');
+  var btn = document.getElementById('btnAutoBackupRestore');
+  if (!el) return;
+  var list = loadAutoBackups();
+  if (!list.length) {
+    el.textContent = '自動バックアップ：まだありません。';
+    if (btn) btn.disabled = true;
+    return;
+  }
+  var d = new Date(list[0].exportedAt);
+  el.textContent = '自動バックアップ：最新は ' +
+    (isNaN(d.getTime()) ? '日時不明' : d.toLocaleString('ja-JP')) +
+    '（' + list.length + '件保存）';
+  if (btn) btn.disabled = false;
+}
+document.getElementById('btnAutoBackupRestore').addEventListener('click', function () {
+  var list = loadAutoBackups();
+  if (!list.length) return;
+  var root = document.getElementById('abModalList');
+  root.innerHTML = list.map(function (p, i) {
+    var d = new Date(p.exportedAt);
+    var when = isNaN(d.getTime()) ? '日時不明' : d.toLocaleString('ja-JP');
+    var sum = '';
+    try {
+      var st = p.data[STORE_KEY] ? JSON.parse(p.data[STORE_KEY]) : null;
+      if (st && st.teams) sum = (st.teams.A.name || 'チームA') + ' 対 ' + (st.teams.B.name || 'チームB');
+    } catch (e) {}
+    return '<button type="button" class="pick-item" data-ab="' + i + '">' + esc(when) +
+      (sum ? '<span class="pick-sub">' + esc(sum) + '</span>' : '') + '</button>';
+  }).join('');
+  document.getElementById('abModal').classList.remove('hidden');
+});
+document.getElementById('abModalList').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-ab]');
+  if (!b) return;
+  var list = loadAutoBackups();
+  var p = list[Number(b.dataset.ab)];
+  document.getElementById('abModal').classList.add('hidden');
+  if (p) handleBackupText(JSON.stringify(p));
+});
+document.getElementById('abModalCancel').addEventListener('click', function () {
+  document.getElementById('abModal').classList.add('hidden');
+});
+renderAutoBackupInfo();
 
 /* ---------- 画面のスリープ防止 ----------
    試合中に画面が消えないようにする設定（初期値はオン）。
