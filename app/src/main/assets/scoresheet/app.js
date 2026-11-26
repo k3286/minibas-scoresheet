@@ -1510,12 +1510,14 @@ function drawSheetCanvas() {
     });
   }
 
-  /* ---------- ファウルの太線（JBA TOマニュアルの決まり） ----------
-     第2Qの終わりとゲームの終わりに、使用した枠と未使用の枠の間に
-     濃色（黒）で太線を引く。第2Qの終わりでは前半（1・2Q）のファウルと
-     後半のファウルの区切りになり、ゲームの終わりでは記録したファウル
-     全体の締めになる。線は、区切り位置の縦線と、使った枠の下線で引く
-     （実物のシートの太線の形、2026-11-26の写真で確認）。
+  /* ---------- ファウルの太線（JBA公式記入例の決まり） ----------
+     第2Qの終わりにだけ、使用した枠と未使用の枠の間に濃色（黒）で
+     太線を引く（前半のファウルの右端に縦線＋前半の枠の下線）。
+     ゲーム終了後に引くのは未使用欄への横線（締めの線の項目2）で、
+     太線は引かない。公式記入例の注記「第2Qの終りに、使用した枠と
+     未使用の枠の間に濃色（黒/青）で太線を引く／ゲーム終了後未使用の
+     欄に横線を引く」と記入例の各行で確認（2026-11-26、河野さんの
+     依頼で公式確認。旧実装は試合終了時にも太線を足していて誤り）。
      第3Q以降（または試合終了時）に表示する。 */
   var pastHalf = game.finished || ['3', '4', '5'].indexOf(qKey(S.quarter)) !== -1;
   if (pastHalf) {
@@ -1535,19 +1537,16 @@ function drawSheetCanvas() {
       });
       function thickMark(fl, top) {
         if (!fl || !fl.length) return;
-        var bounds = {};
+        /* 区切りは前半（1・2Q）最後のファウルの右端の1か所だけ */
         var lastHalf = -1;
         fl.forEach(function (f, j) {
           var kk = qKey(f.q);
           if (kk === '1' || kk === '2') lastHalf = j;
         });
-        if (lastHalf >= 0) bounds[lastHalf + 1] = true;
-        if (game.finished && fl.length < 5) bounds[fl.length] = true;
-        Object.keys(bounds).forEach(function (b) {
-          var bx = foulX[Number(b)];
-          drawLine(ctx, bx, top + 2, bx, top + 57, COL_BLACK, 8);
-          drawLine(ctx, foulX[0], top + 57, bx, top + 57, COL_BLACK, 8);
-        });
+        if (lastHalf < 0) return;
+        var bx = foulX[lastHalf + 1];
+        drawLine(ctx, bx, top + 2, bx, top + 57, COL_BLACK, 8);
+        drawLine(ctx, foulX[0], top + 57, bx, top + 57, COL_BLACK, 8);
       }
       for (var iiT = 0; iiT < nRegT; iiT++) {
         thickMark(pfoulsT[iiT], rowTop0[tt] + iiT * 59);
