@@ -570,8 +570,11 @@ document.getElementById('btnLineup').addEventListener('click', function () {
 var recordTeam = 'A';
 function recSwitchLabel(t) {
   var team = S.teams[t];
-  return 'チーム' + t + '：' + esc(team.name || '（未入力）') + (team.color ? '（' + esc(team.color) + '）' : '') +
-    ' <span class="rec-switch-score">' + totalScore(t) + '</span>';
+  /* 1行目にチーム記号と色、2行目にチーム名とスコアを置き、
+     チーム名の途中では改行しない（長い名前は…で省略） */
+  return '<span class="rt-head">チーム' + t + (team.color ? '（' + esc(team.color) + '）' : '') + '</span>' +
+    '<span class="rt-main"><span class="rt-name">' + esc(team.name || '（未入力）') + '</span>' +
+    '<span class="rec-switch-score">' + totalScore(t) + '</span></span>';
 }
 function applyRecordTeam() {
   var a = document.getElementById('recTeamA');
