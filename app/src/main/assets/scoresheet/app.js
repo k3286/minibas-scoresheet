@@ -1691,6 +1691,122 @@ document.getElementById('btnNewGame').addEventListener('click', function () {
   alert('新しい試合の入力を始められます。');
 });
 
+/* ---------- データのバックアップ ----------
+   進行中の試合・過去の試合・れんしゅうモードのデータを、localStorage の
+   キーごと1つの JSON ファイルに書き出す。復元は AndroidBackup ブリッジ
+   （ファイル選択）または file 入力から受け取り、検証してから書き戻す。 */
+var BACKUP_KEYS = [STORE_KEY, PRACTICE_KEY, ARCHIVE_KEY, PRACTICE_ARCHIVE_KEY, MODE_KEY];
+function backupStamp() {
+  var d = new Date();
+  function p(n) { return (n < 10 ? '0' : '') + n; }
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
+}
+function exportBackup() {
+  var data = {};
+  BACKUP_KEYS.forEach(function (k) {
+    try { var v = localStorage.getItem(k); if (v != null) data[k] = v; } catch (e) {}
+  });
+  var payload = {
+    app: 'minibas-scoresheet', kind: 'backup', version: 1,
+    exportedAt: new Date().toISOString(), data: data
+  };
+  var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  saveBlobAsFile(blob, 'minibas-scoresheet-backup-' + backupStamp() + '.json', 'application/json', function () {
+    alert('バックアップの書き出しに失敗しました。');
+  });
+}
+function backupSummary(payload) {
+  var lines = [];
+  try {
+    var st = payload.data[STORE_KEY] ? JSON.parse(payload.data[STORE_KEY]) : null;
+    if (st && st.teams) {
+      lines.push('本番の試合：' + (st.teams.A.name || 'チームA') + ' 対 ' + (st.teams.B.name || 'チームB'));
+    }
+    var arc = payload.data[ARCHIVE_KEY] ? JSON.parse(payload.data[ARCHIVE_KEY]) : [];
+    lines.push('過去の試合：' + (Array.isArray(arc) ? arc.length : 0) + '件');
+    var d = new Date(payload.exportedAt);
+    if (!isNaN(d.getTime())) lines.push('書き出した日時：' + d.toLocaleString('ja-JP'));
+  } catch (e) {}
+  return lines.join('\n');
+}
+function handleBackupText(text) {
+  var payload = null;
+  try { payload = JSON.parse(text); } catch (e) {}
+  if (!payload || payload.app !== 'minibas-scoresheet' || payload.kind !== 'backup' || !payload.data) {
+    alert('このファイルは、このアプリのバックアップではないようです。');
+    return;
+  }
+  var msg = 'このバックアップで、今のデータを上書きして戻しますか？\n\n' +
+    backupSummary(payload) + '\n\n※今のデータは上書きされます。';
+  if (!confirm(msg)) return;
+  BACKUP_KEYS.forEach(function (k) {
+    try {
+      if (typeof payload.data[k] === 'string') localStorage.setItem(k, payload.data[k]);
+      else localStorage.removeItem(k);
+    } catch (e) {}
+  });
+  alert('バックアップから戻しました。');
+  location.reload();
+}
+window.onBackupFile = function (text) { handleBackupText(text); };
+window.onBackupError = function (code) {
+  if (code === 1) return; /* キャンセル時は何もしない */
+  alert('バックアップファイルを開けませんでした。');
+};
+document.getElementById('btnBackupExport').addEventListener('click', exportBackup);
+document.getElementById('btnBackupImport').addEventListener('click', function () {
+  if (window.AndroidBackup && typeof window.AndroidBackup.pickBackup === 'function') {
+    window.AndroidBackup.pickBackup();
+  } else {
+    document.getElementById('backupFileInput').click();
+  }
+});
+document.getElementById('backupFileInput').addEventListener('change', function (e) {
+  var f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function () { handleBackupText(String(reader.result || '')); };
+  reader.onerror = function () { alert('バックアップファイルを開けませんでした。'); };
+  reader.readAsText(f);
+});
+
+/* ---------- 画面のスリープ防止 ----------
+   試合中に画面が消えないようにする設定（初期値はオン）。
+   Android では ScreenBridge が FLAG_KEEP_SCREEN_ON を切り替え、
+   ブラウザでは Wake Lock API を使う。 */
+var SCREEN_KEY = 'minibas-scoresheet-screen-v1';
+var wakeLockObj = null;
+function keepScreenOnEnabled() {
+  try { return localStorage.getItem(SCREEN_KEY) !== 'off'; } catch (e) { return true; }
+}
+function applyKeepScreenOn() {
+  var on = keepScreenOnEnabled();
+  if (window.AndroidScreen && typeof window.AndroidScreen.setKeepScreenOn === 'function') {
+    window.AndroidScreen.setKeepScreenOn(on);
+    return;
+  }
+  if (!on) {
+    if (wakeLockObj) { try { wakeLockObj.release(); } catch (e) {} wakeLockObj = null; }
+    return;
+  }
+  if (navigator.wakeLock && typeof navigator.wakeLock.request === 'function') {
+    navigator.wakeLock.request('screen').then(function (wl) { wakeLockObj = wl; }).catch(function () {});
+  }
+}
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible' && keepScreenOnEnabled()) applyKeepScreenOn();
+});
+var chkKeepScreenOnEl = document.getElementById('chkKeepScreenOn');
+if (chkKeepScreenOnEl) {
+  chkKeepScreenOnEl.checked = keepScreenOnEnabled();
+  chkKeepScreenOnEl.addEventListener('change', function () {
+    try { localStorage.setItem(SCREEN_KEY, chkKeepScreenOnEl.checked ? 'on' : 'off'); } catch (e) {}
+    applyKeepScreenOn();
+  });
+}
+applyKeepScreenOn();
+
 /* ---------- 音声入力（AndroidVoice ブリッジ） ----------
    ネイティブ側（MainActivity の VoiceBridge）が SpeechRecognizer で
    取得したテキストを window.onVoiceResult / window.onVoiceError で受け取る。

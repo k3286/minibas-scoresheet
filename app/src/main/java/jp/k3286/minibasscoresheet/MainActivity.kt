@@ -19,6 +19,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Base64
+import android.view.WindowManager
 import android.app.AlertDialog
 import android.webkit.JavascriptInterface
 import android.webkit.JsResult
@@ -48,6 +49,7 @@ class MainActivity : Activity() {
     private var voiceBridge: VoiceBridge? = null
     private var saveBridge: SaveBridge? = null
     private var ocrBridge: OcrBridge? = null
+    private var backupBridge: BackupBridge? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -100,6 +102,12 @@ class MainActivity : Activity() {
         val ob = OcrBridge(this, webView)
         ocrBridge = ob
         webView.addJavascriptInterface(ob, "AndroidOcr")
+        // JavaScript からバックアップファイルの読み込みを呼び出すためのブリッジ
+        val bb = BackupBridge(this, webView)
+        backupBridge = bb
+        webView.addJavascriptInterface(bb, "AndroidBackup")
+        // JavaScript から画面のスリープ防止を切り替えるためのブリッジ
+        webView.addJavascriptInterface(ScreenBridge(this), "AndroidScreen")
 
         webView.loadUrl("file:///android_asset/scoresheet/index.html")
     }
@@ -124,6 +132,9 @@ class MainActivity : Activity() {
         }
         if (requestCode == OcrBridge.REQUEST_OCR_PICK) {
             ocrBridge?.handlePickResult(resultCode, data)
+        }
+        if (requestCode == BackupBridge.REQUEST_PICK_BACKUP) {
+            backupBridge?.handlePickResult(resultCode, data)
         }
     }
 
@@ -385,6 +396,100 @@ class MainActivity : Activity() {
                 }
                 val js = "window.onSaveResult && window.onSaveResult(" + ok + ")"
                 webView.evaluateJavascript(js, null)
+            }
+        }
+    }
+
+    /**
+     * JavaScript 側の window.AndroidBackup.pickBackup() から呼ばれ、
+     * バックアップファイル（JSON）をドキュメントUIから選んでテキストとして読み、
+     * window.onBackupFile(text) / window.onBackupError(code) で返すブリッジ。
+     * 書き出しは SaveBridge（ACTION_CREATE_DOCUMENT）で共通化されている。
+     */
+    class BackupBridge(
+        private val context: Context,
+        private val webView: WebView
+    ) {
+        companion object {
+            // 1001=音声権限、1002=保存、1003/1004=OCR と衝突しない値
+            const val REQUEST_PICK_BACKUP = 1005
+            const val ERROR_CANCELLED = 1
+            const val ERROR_OPEN_FAILED = 2
+        }
+
+        /** バックアップファイルをドキュメントUIから選ぶ */
+        @JavascriptInterface
+        fun pickBackup() {
+            val activity = context as? Activity ?: return
+            activity.runOnUiThread {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                }
+                try {
+                    activity.startActivityForResult(intent, REQUEST_PICK_BACKUP)
+                } catch (e: Exception) {
+                    notifyError(ERROR_OPEN_FAILED)
+                }
+            }
+        }
+
+        /** ファイル選択の結果を受け取り、内容をテキストとして JS へ返す */
+        fun handlePickResult(resultCode: Int, data: Intent?) {
+            val uri = data?.data
+            if (resultCode != Activity.RESULT_OK || uri == null) {
+                notifyError(ERROR_CANCELLED)
+                return
+            }
+            // 読み込みはバックグラウンドスレッドで行う
+            Thread {
+                var text: String? = null
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        val bytes = input.readBytes()
+                        // バックアップは小さい想定。異常に大きいファイルは弾く
+                        if (bytes.size <= 32 * 1024 * 1024) {
+                            text = String(bytes, Charsets.UTF_8)
+                        }
+                    }
+                } catch (e: Exception) {
+                    text = null
+                }
+                val t = text
+                if (t != null) notifyFile(t) else notifyError(ERROR_OPEN_FAILED)
+            }.start()
+        }
+
+        private fun notifyFile(text: String) {
+            val js = "window.onBackupFile && window.onBackupFile(" +
+                JSONObject.quote(text) + ")"
+            (context as? Activity)?.runOnUiThread {
+                webView.evaluateJavascript(js, null)
+            }
+        }
+
+        private fun notifyError(code: Int) {
+            val js = "window.onBackupError && window.onBackupError(" + code + ")"
+            (context as? Activity)?.runOnUiThread {
+                webView.evaluateJavascript(js, null)
+            }
+        }
+    }
+
+    /**
+     * JavaScript 側の window.AndroidScreen.setKeepScreenOn(true/false) から呼ばれ、
+     * Activity の FLAG_KEEP_SCREEN_ON を切り替える（試合中のスリープ防止）。
+     */
+    class ScreenBridge(private val context: Context) {
+        @JavascriptInterface
+        fun setKeepScreenOn(on: Boolean) {
+            val activity = context as? Activity ?: return
+            activity.runOnUiThread {
+                if (on) {
+                    activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
             }
         }
     }

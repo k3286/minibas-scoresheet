@@ -69,6 +69,16 @@
     </div>
     <h2>過去の試合</h2>
     <div id="archiveList"></div>
+    <h2>データのバックアップと画面</h2>
+    <p class="hint">試合データを1つのファイルに書き出しておくと、機種変更や故障のときに、そのファイルから元通りに戻せます。進行中の試合・過去の試合・れんしゅうモードのデータが全部入ります。書き出したファイルは、Googleドライブなどに置いておくと安心です。</p>
+    <div>
+      <button id="btnBackupExport" type="button">💾 バックアップを書き出す</button>
+      <button id="btnBackupImport" type="button">📂 バックアップから戻す</button>
+    </div>
+    <input type="file" id="backupFileInput" accept=".json,application/json" style="display:none">
+    <div class="form-grid" style="margin-top:14px">
+      <label class="check"><input type="checkbox" id="chkKeepScreenOn"> 試合中は画面を消さない（スリープ防止）</label>
+    </div>
   </section>
 
   <!-- ===== 選手登録 ===== -->
