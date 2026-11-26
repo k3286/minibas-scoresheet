@@ -1054,7 +1054,7 @@ function drawSheetCanvas() {
   var partX = [747, 804, 861, 918, 975];
   var foulX = [975, 1032, 1089, 1146, 1203, 1260];
   var licCX = [148, 205, 262];
-  var toCols = [946, 1003, 1060, 1117, 1174];
+  var toCols = [1004, 1060, 1118, 1175, 1231];
   var toColIdx = { '1': 0, '2': 1, '3': 2, '4': 3, '5': 4 };
 
   ['A', 'B'].forEach(function (tt) {
