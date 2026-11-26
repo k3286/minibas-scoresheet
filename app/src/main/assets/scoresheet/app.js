@@ -105,6 +105,27 @@ function esc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+function trimStr(v) {
+  return String(v == null ? '' : v).replace(/^\s+|\s+$/g, '');
+}
+/* 登録済み選手数 = 名前か背番号のある最後の行 + 1（データ上は枠が多めにある） */
+function lastRegisteredCount(players) {
+  var n = 0;
+  players.forEach(function (p, idx) {
+    if (trimStr(p.name) !== '' || trimStr(p.no) !== '') n = idx + 1;
+  });
+  return n;
+}
+/* そのチームのファウルを who（選手index / 'coach' / 'acoach'）ごとに時系列でまとめる */
+function foulsByWho(teamKey) {
+  var map = {};
+  S.fouls.forEach(function (f) {
+    if (f.team === teamKey) {
+      (map[f.who] || (map[f.who] = [])).push(f);
+    }
+  });
+  return map;
+}
 function totalScore(team) {
   return S.events.filter(function (e) { return e.team === team; })
     .reduce(function (a, e) { return a + e.pts; }, 0);
@@ -1153,7 +1174,7 @@ function ellipseFill(ctx, cx, cy, rx, ry, color) {
 }
 /* ライセンス下3桁を1桁ずつ描く（Python版と同じくゼロ埋めして末尾3文字） */
 function drawLicense(ctx, license, centersX, cy) {
-  var s = String(license == null ? '' : license).replace(/^\s+|\s+$/g, '');
+  var s = trimStr(license);
   if (!s) return;
   var digits = ('000' + s).slice(-3);
   for (var k = 0; k < 3; k++) textC(ctx, centersX[k], cy, digits.charAt(k), 30, COL_BLACK);
@@ -1256,12 +1277,7 @@ function drawSheetCanvas() {
       textC(ctx, toCols[col], headCY[tt] + 38, String(arrT[0]), 40, qColorCanvas(qq0), true);
     });
     /* 選手別ファウル（時系列順） */
-    var pfouls = {};
-    S.fouls.forEach(function (f) {
-      if (f.team === tt) {
-        (pfouls[f.who] || (pfouls[f.who] = [])).push(f);
-      }
-    });
+    var pfouls = foulsByWho(tt);
     var part = S.participation[tt] || {};
     team.players.forEach(function (p, idx) {
       var top = rowTop0[tt] + idx * 59;
@@ -1395,18 +1411,8 @@ function drawSheetCanvas() {
       var team = teams[tt];
       var rosterSize = team.players.length;
       /* 登録済み選手数 = 名前か背番号のある最後の行 + 1（データ上は15枠ある） */
-      var nReg = 0;
-      team.players.forEach(function (p, idx) {
-        var hasName = String(p.name || '').replace(/^\s+|\s+$/g, '') !== '';
-        var hasNo = String(p.no == null ? '' : p.no).replace(/^\s+|\s+$/g, '') !== '';
-        if (hasName || hasNo) nReg = idx + 1;
-      });
-      var pfoulsC = {};
-      S.fouls.forEach(function (f) {
-        if (f.team === tt) {
-          (pfoulsC[f.who] || (pfoulsC[f.who] = [])).push(f);
-        }
-      });
+      var nReg = lastRegisteredCount(team.players);
+      var pfoulsC = foulsByWho(tt);
       /* 1. 名簿の締め: 最終登録選手行の直下に太い横線（表の全幅） */
       if (nReg > 0 && nReg < rosterSize) {
         var yReg = rowTop0[tt] + nReg * 59;
@@ -1523,18 +1529,8 @@ function drawSheetCanvas() {
   if (pastHalf) {
     ['A', 'B'].forEach(function (tt) {
       var team = teams[tt];
-      var nRegT = 0;
-      team.players.forEach(function (p, idx) {
-        var hasName = String(p.name || '').replace(/^\s+|\s+$/g, '') !== '';
-        var hasNo = String(p.no == null ? '' : p.no).replace(/^\s+|\s+$/g, '') !== '';
-        if (hasName || hasNo) nRegT = idx + 1;
-      });
-      var pfoulsT = {};
-      S.fouls.forEach(function (f) {
-        if (f.team === tt) {
-          (pfoulsT[f.who] || (pfoulsT[f.who] = [])).push(f);
-        }
-      });
+      var nRegT = lastRegisteredCount(team.players);
+      var pfoulsT = foulsByWho(tt);
       function thickMark(fl, top) {
         if (!fl || !fl.length) return;
         /* 区切りは前半（1・2Q）最後のファウルの右端の1か所だけ */
