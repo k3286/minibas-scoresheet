@@ -149,7 +149,6 @@ button.practice-open {
 .modal-box input[type="number"] { width: 100%; padding: 10px; font-size: 17px; border: 1px solid #bbb; border-radius: 6px; margin: 6px 0 12px; }
 .modal-row { display: flex; gap: 8px; }
 .modal-row button { flex: 1; padding: 11px; border-radius: 8px; font-size: 14px; }
-.modal-row #toSave { background: #e65100; color: #fff; border: none; font-weight: bold; }
 .sheet-actions { margin-bottom: 10px; display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; }
 .sheet-actions .sa-group { display: inline-flex; gap: 8px; flex-wrap: wrap; }
 .sheet-actions-bottom { margin-top: 10px; margin-bottom: 2px; }
