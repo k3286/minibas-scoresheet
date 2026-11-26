@@ -7,6 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
+import java.io.ByteArrayOutputStream
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
@@ -55,6 +59,7 @@ class MainActivity : Activity() {
     private var saveBridge: SaveBridge? = null
     private var ocrBridge: OcrBridge? = null
     private var backupBridge: BackupBridge? = null
+    private var bgBridge: BgBridge? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -115,6 +120,10 @@ class MainActivity : Activity() {
         webView.addJavascriptInterface(ScreenBridge(this), "AndroidScreen")
         // JavaScript からシート（PDF・画像）を他アプリへ共有するためのブリッジ
         webView.addJavascriptInterface(ShareBridge(this), "AndroidShare")
+        // JavaScript から背景用の写真を選ぶためのブリッジ
+        val gb = BgBridge(this, webView)
+        bgBridge = gb
+        webView.addJavascriptInterface(gb, "AndroidBg")
 
         webView.loadUrl("file:///android_asset/scoresheet/index.html")
     }
@@ -142,6 +151,9 @@ class MainActivity : Activity() {
         }
         if (requestCode == BackupBridge.REQUEST_PICK_BACKUP) {
             backupBridge?.handlePickResult(resultCode, data)
+        }
+        if (requestCode == BgBridge.REQUEST_PICK_BG) {
+            bgBridge?.handlePickResult(resultCode, data)
         }
     }
 
@@ -472,6 +484,94 @@ class MainActivity : Activity() {
         private fun notifyError(code: Int) {
             val js = "window.onBackupError && window.onBackupError(" + code + ")"
             evalJs(context, webView, js)
+        }
+    }
+
+    /**
+     * JavaScript 側の window.AndroidBg.pickImage() から呼ばれ、写真を1枚選ばせて、
+     * 背景用に縮小した JPEG を data URL として window.__bgPicked へ返します。
+     * 選んだ写真は端末の外へ出ません（WebView の localStorage に保存されるだけ）。
+     */
+    class BgBridge(
+        private val context: Context,
+        private val webView: WebView
+    ) {
+        companion object {
+            // 1001=音声権限、1002=保存、1003/1004=OCR、1005=バックアップと衝突しない値
+            const val REQUEST_PICK_BG = 1006
+        }
+
+        /** 背景用の写真をドキュメントUIから選ぶ */
+        @JavascriptInterface
+        fun pickImage() {
+            val activity = context as? Activity ?: return
+            activity.runOnUiThread {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "image/*"
+                }
+                try {
+                    activity.startActivityForResult(intent, REQUEST_PICK_BG)
+                } catch (e: Exception) {
+                    // 選べなかった場合は何もしない（背景は現状のまま）
+                }
+            }
+        }
+
+        /** 写真選択の結果を受け取り、縮小して JS へ返す */
+        fun handlePickResult(resultCode: Int, data: Intent?) {
+            val uri = data?.data
+            if (resultCode != Activity.RESULT_OK || uri == null) return
+            Thread {
+                var dataUrl: String? = null
+                try {
+                    val resolver = context.contentResolver
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                    var sample = 1
+                    val longest = maxOf(bounds.outWidth, bounds.outHeight)
+                    while (longest / (sample * 2) >= 640) sample *= 2
+                    val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+                    val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+                    if (decoded != null) {
+                        var oriented: Bitmap = decoded
+                        // 写真の回転情報（EXIF）を反映する
+                        try {
+                            resolver.openInputStream(uri)?.use { input ->
+                                val exif = ExifInterface(input)
+                                val orientation = exif.getAttributeInt(
+                                    ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL
+                                )
+                                val degrees = when (orientation) {
+                                    ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                                    ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                                    ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                                    else -> 0f
+                                }
+                                if (degrees != 0f) {
+                                    val matrix = Matrix().apply { postRotate(degrees) }
+                                    val rotated = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+                                    if (rotated !== decoded) oriented = rotated
+                                }
+                            }
+                        } catch (e: Exception) {
+                            // 回転できなくてもそのまま続行する
+                        }
+                        val baos = ByteArrayOutputStream()
+                        oriented.compress(Bitmap.CompressFormat.JPEG, 82, baos)
+                        dataUrl = "data:image/jpeg;base64," +
+                            Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                    }
+                } catch (e: Exception) {
+                    dataUrl = null
+                }
+                val url = dataUrl
+                if (url != null) {
+                    val js = "window.__bgPicked && window.__bgPicked(" +
+                        JSONObject.quote(url) + ")"
+                    evalJs(context, webView, js)
+                }
+            }.start()
         }
     }
 

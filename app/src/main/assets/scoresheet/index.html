@@ -84,6 +84,27 @@
     <div class="form-grid checks" style="margin-top:14px">
       <label class="check"><input type="checkbox" id="chkKeepScreenOn"> 試合中は画面を消さない（スリープ防止）</label>
     </div>
+    <h2>背景のカスタマイズ</h2>
+    <p class="hint">変えるのは、画面いちばん後ろの背景だけです。公式シートの様式や、白いカードの部分は変わらないので、記録が見にくくなることはありません。写真を選んだ場合は、白をうっすら重ねて文字を読みやすくします。</p>
+    <div class="bg-swatches" id="bgSwatches">
+      <button type="button" class="bg-swatch" data-bg="default" style="background:#f4f6f8">デフォルト</button>
+      <button type="button" class="bg-swatch" data-bg="#ffffff" style="background:#ffffff">白</button>
+      <button type="button" class="bg-swatch" data-bg="#eceff1" style="background:#eceff1">薄グレー</button>
+      <button type="button" class="bg-swatch" data-bg="#e3f2fd" style="background:#e3f2fd">薄ブルー</button>
+      <button type="button" class="bg-swatch" data-bg="#e8f5e9" style="background:#e8f5e9">薄グリーン</button>
+      <button type="button" class="bg-swatch" data-bg="#fff3e0" style="background:#fff3e0">薄オレンジ</button>
+      <button type="button" class="bg-swatch" data-bg="#fce4ec" style="background:#fce4ec">薄ピンク</button>
+    </div>
+    <div style="margin-top:10px">
+      <button id="btnBgPick" type="button" class="btn-line">🖼 写真から選ぶ</button>
+      <button id="btnBgReset" type="button" class="btn-line">背景をリセット</button>
+    </div>
+    <input type="file" id="bgFileInput" accept="image/*" style="display:none">
+    <label class="bg-slider">写真の白かぶせ
+      <input type="range" id="bgOverlay" min="60" max="97" step="1" value="85">
+      <span id="bgOverlayVal">85%</span>
+    </label>
+    <p class="hint" id="bgStatus"></p>
   </section>
 
   <!-- ===== 選手登録 ===== -->

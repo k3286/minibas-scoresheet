@@ -356,3 +356,13 @@ button.practice-open {
   #printRoot { display: block !important; }
   #printRoot img { width: 100%; height: auto; display: block; }
 }
+
+/* 背景のカスタマイズ（試合情報タブ） */
+.bg-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.bg-swatch {
+  border: 2px solid #b0bec5; border-radius: 8px; padding: 10px 6px;
+  font-size: 13px; color: #37474f; min-width: 76px; cursor: pointer;
+}
+.bg-swatch.selected { border-color: #e65100; box-shadow: 0 0 0 2px rgba(230,81,0,.30); font-weight: bold; }
+.bg-slider { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 14px; }
+.bg-slider input[type="range"] { flex: 1; }

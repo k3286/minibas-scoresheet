@@ -2275,6 +2275,144 @@ if (chkKeepScreenOnEl) {
 }
 applyKeepScreenOn();
 
+/* ---------- 背景のカスタマイズ（一番後ろの背景だけ） ----------
+   変えるのは body の背景だけ。公式シートの様式・白いカード類には触れない。
+   写真は白かぶせ（60〜97%）を重ねるので、文字の読みにくさは出ない設計。
+   設定は localStorage（BG_KEY）に保存し、バックアップの対象キーには含めない
+   （端末ごとの見た目の設定なので）。 */
+var BG_KEY = 'minibas-scoresheet-bg-v1';
+var bgSetting = { kind: 'default', color: '', data: '', overlay: 85 };
+try {
+  var bgRaw = localStorage.getItem(BG_KEY);
+  if (bgRaw) {
+    var bgParsed = JSON.parse(bgRaw);
+    if (bgParsed && (bgParsed.kind === 'color' || bgParsed.kind === 'image')) {
+      bgSetting = {
+        kind: bgParsed.kind,
+        color: bgParsed.color || '',
+        data: bgParsed.data || '',
+        overlay: Math.min(97, Math.max(60, Number(bgParsed.overlay) || 85))
+      };
+    }
+  }
+} catch (e) {}
+function saveBgSetting() {
+  try { localStorage.setItem(BG_KEY, JSON.stringify(bgSetting)); } catch (e) {}
+}
+function applyBg() {
+  var b = document.body;
+  if (!b) return;
+  b.style.backgroundImage = '';
+  b.style.backgroundColor = '';
+  b.style.backgroundSize = '';
+  b.style.backgroundPosition = '';
+  b.style.backgroundRepeat = '';
+  b.style.backgroundAttachment = '';
+  if (bgSetting.kind === 'color' && bgSetting.color) {
+    b.style.backgroundColor = bgSetting.color;
+  } else if (bgSetting.kind === 'image' && bgSetting.data) {
+    var a = bgSetting.overlay / 100;
+    b.style.backgroundColor = '#f4f6f8';
+    b.style.backgroundImage = 'linear-gradient(rgba(255,255,255,' + a + '), rgba(255,255,255,' + a + ')), url("' + bgSetting.data + '")';
+    b.style.backgroundSize = 'cover';
+    b.style.backgroundPosition = 'center center';
+    b.style.backgroundRepeat = 'no-repeat';
+    b.style.backgroundAttachment = 'fixed';
+  }
+  var swatches = document.querySelectorAll('.bg-swatch');
+  for (var i = 0; i < swatches.length; i++) {
+    var v = swatches[i].getAttribute('data-bg');
+    var on = (bgSetting.kind === 'default' && v === 'default') ||
+             (bgSetting.kind === 'color' && v === bgSetting.color);
+    if (on) swatches[i].classList.add('selected'); else swatches[i].classList.remove('selected');
+  }
+  var ov = document.getElementById('bgOverlay');
+  if (ov) ov.value = bgSetting.overlay;
+  var ovv = document.getElementById('bgOverlayVal');
+  if (ovv) ovv.textContent = bgSetting.overlay + '%';
+  var st = document.getElementById('bgStatus');
+  if (st) {
+    st.textContent = '現在の背景：' + (bgSetting.kind === 'image' ? '写真（白かぶせ ' + bgSetting.overlay + '%）'
+      : bgSetting.kind === 'color' ? '色（' + bgSetting.color + '）' : 'デフォルト');
+  }
+}
+window.__bgPicked = function (dataUrl) {
+  if (!dataUrl) return;
+  bgSetting = { kind: 'image', color: '', data: dataUrl, overlay: bgSetting.overlay || 85 };
+  saveBgSetting();
+  applyBg();
+};
+(function wireBgSettings() {
+  var sw = document.getElementById('bgSwatches');
+  if (sw) {
+    sw.addEventListener('click', function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest('.bg-swatch') : null;
+      if (!btn) return;
+      var v = btn.getAttribute('data-bg');
+      if (v === 'default') {
+        bgSetting = { kind: 'default', color: '', data: '', overlay: bgSetting.overlay || 85 };
+      } else {
+        bgSetting = { kind: 'color', color: v, data: '', overlay: bgSetting.overlay || 85 };
+      }
+      saveBgSetting();
+      applyBg();
+    });
+  }
+  var pick = document.getElementById('btnBgPick');
+  var fileInput = document.getElementById('bgFileInput');
+  if (pick) {
+    pick.addEventListener('click', function () {
+      if (window.AndroidBg && typeof AndroidBg.pickImage === 'function') {
+        AndroidBg.pickImage();
+      } else if (fileInput) {
+        fileInput.click();
+      }
+    });
+  }
+  if (fileInput) {
+    fileInput.addEventListener('change', function () {
+      var f = fileInput.files && fileInput.files[0];
+      fileInput.value = '';
+      if (!f) return;
+      var url = URL.createObjectURL(f);
+      var img = new Image();
+      img.onload = function () {
+        var maxDim = 1080;
+        var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        var c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.width * scale));
+        c.height = Math.max(1, Math.round(img.height * scale));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        window.__bgPicked(c.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); };
+      img.src = url;
+    });
+  }
+  var reset = document.getElementById('btnBgReset');
+  if (reset) {
+    reset.addEventListener('click', function () {
+      bgSetting = { kind: 'default', color: '', data: '', overlay: 85 };
+      saveBgSetting();
+      applyBg();
+    });
+  }
+  var ov = document.getElementById('bgOverlay');
+  if (ov) {
+    ov.addEventListener('input', function () {
+      bgSetting.overlay = Math.min(97, Math.max(60, Number(ov.value) || 85));
+      if (bgSetting.kind === 'image') { saveBgSetting(); applyBg(); }
+      else {
+        var ovv = document.getElementById('bgOverlayVal');
+        if (ovv) ovv.textContent = bgSetting.overlay + '%';
+        saveBgSetting();
+      }
+    });
+  }
+})();
+applyBg();
+
 /* ---------- 音声入力（AndroidVoice ブリッジ） ----------
    ネイティブ側（MainActivity の VoiceBridge）が SpeechRecognizer で
    取得したテキストを window.onVoiceResult / window.onVoiceError で受け取る。
