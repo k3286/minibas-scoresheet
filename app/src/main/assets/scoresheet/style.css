@@ -412,10 +412,10 @@ button.practice-open {
 }
 .cover-b .binder-credit { padding-right: 150px; }
 .cover-rare .art-tiger {
-  display: block; width: 96%; left: 55%; transform: translateX(-50%);
-  top: 42%; opacity: .96;
+  display: block; inset: 0; width: 100%; height: 100%;
 }
-.cover-rare .binder-main { justify-content: flex-start; padding-top: 13vh; }
+.cover-rare .binder-main { justify-content: flex-start; padding-top: 10vh; }
+.cover-rare .binder-credit { color: #f5e9c9; text-shadow: 0 1px 5px rgba(0,0,0,.7); opacity: 1; }
 .ball-body { fill: #e07b39; stroke: #4a2e1c; stroke-width: 3; }
 .ball-seam { fill: none; stroke: #4a2e1c; stroke-width: 4; }
 .cover-c .art-court { display: block; inset: 0; width: 100%; height: 100%; }
