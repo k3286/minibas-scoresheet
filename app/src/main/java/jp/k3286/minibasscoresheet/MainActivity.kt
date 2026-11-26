@@ -39,8 +39,11 @@ import org.json.JSONObject
  *
  * 単一 Activity + WebView の構成です。
  * スコアシート本体（入力 UI・公式シート描画・印刷用 CSS）は
- * assets/scoresheet/ 以下の HTML/CSS/JS で実装し、
- * 印刷だけを Android の印刷フレームワークへブリッジします。
+ * assets/scoresheet/ 以下の HTML/CSS/JS で実装し、WebView では
+ * できないことだけをブリッジで Android 側へ委ねます：
+ * 印刷（PrintBridge）、音声認識（VoiceBridge）、ファイル保存
+ * （SaveBridge）、メンバー表 OCR（OcrBridge）、バックアップ
+ * 読み込み（BackupBridge）、画面のスリープ防止（ScreenBridge）。
  * データは WebView の localStorage に自動保存されます。
  */
 class MainActivity : Activity() {
@@ -293,16 +296,12 @@ class MainActivity : Activity() {
         private fun notifyResult(text: String) {
             val js = "window.onVoiceResult && window.onVoiceResult(" +
                 JSONObject.quote(text) + ")"
-            (context as? Activity)?.runOnUiThread {
-                webView.evaluateJavascript(js, null)
-            }
+            evalJs(context, webView, js)
         }
 
         fun notifyError(code: Int) {
             val js = "window.onVoiceError && window.onVoiceError(" + code + ")"
-            (context as? Activity)?.runOnUiThread {
-                webView.evaluateJavascript(js, null)
-            }
+            evalJs(context, webView, js)
         }
     }
 
@@ -463,16 +462,12 @@ class MainActivity : Activity() {
         private fun notifyFile(text: String) {
             val js = "window.onBackupFile && window.onBackupFile(" +
                 JSONObject.quote(text) + ")"
-            (context as? Activity)?.runOnUiThread {
-                webView.evaluateJavascript(js, null)
-            }
+            evalJs(context, webView, js)
         }
 
         private fun notifyError(code: Int) {
             val js = "window.onBackupError && window.onBackupError(" + code + ")"
-            (context as? Activity)?.runOnUiThread {
-                webView.evaluateJavascript(js, null)
-            }
+            evalJs(context, webView, js)
         }
     }
 
@@ -710,16 +705,22 @@ class MainActivity : Activity() {
         private fun notifyResult(json: String) {
             val js = "window.onOcrResult && window.onOcrResult(" +
                 JSONObject.quote(json) + ")"
-            (context as? Activity)?.runOnUiThread {
-                webView.evaluateJavascript(js, null)
-            }
+            evalJs(context, webView, js)
         }
 
         private fun notifyError(code: Int) {
             val js = "window.onOcrError && window.onOcrError(" + code + ")"
-            (context as? Activity)?.runOnUiThread {
-                webView.evaluateJavascript(js, null)
-            }
+            evalJs(context, webView, js)
         }
+    }
+}
+
+/**
+ * 各ブリッジから JS へ結果を返すための共通処理。
+ * evaluateJavascript は UI スレッドで呼ぶ必要があるため、ここに集約する。
+ */
+private fun evalJs(context: Context, webView: WebView, js: String) {
+    (context as? Activity)?.runOnUiThread {
+        webView.evaluateJavascript(js, null)
     }
 }
