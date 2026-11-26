@@ -405,7 +405,7 @@ button.practice-open {
 .cover-art { display: none; position: absolute; }
 .cover-a .art-dunk {
   display: block;
-  width: 74%; height: auto; top: 15%; left: 56%; transform: translateX(-50%);
+  height: 38%; width: auto; top: 12%; left: 56%; transform: translateX(-50%);
 }
 .cover-b .art-ball {
   display: block; width: 300px; height: 300px; right: -120px; bottom: -120px;
@@ -424,9 +424,14 @@ button.practice-open {
 .ball-body { fill: #e07b39; stroke: #4a2e1c; stroke-width: 3; }
 .ball-seam { fill: none; stroke: #4a2e1c; stroke-width: 4; }
 .cover-c .art-court {
-  display: block; left: 60px; right: 8px; top: 5%; bottom: 5%;
+  display: block; left: 60px; right: 8px; top: 6%; bottom: 36%;
   width: auto; height: auto;
 }
+.cover-c .binder-main { justify-content: flex-end; padding-bottom: 9vh; }
+.cover-d .art-ball-d {
+  display: block; width: 150px; height: 150px; right: 18px; bottom: 20px;
+}
+.cover-d .binder-credit { padding-right: 150px; }
 .binder-main {
   flex: 1; position: relative; z-index: 2; color: #fff; text-align: center;
   display: flex; flex-direction: column; align-items: center; justify-content: center;

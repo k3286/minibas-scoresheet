@@ -2872,10 +2872,10 @@ window.onOcrError = function (code) {
     var queue = [];
     try {
       var qRaw = JSON.parse(localStorage.getItem(COVER_QUEUE_KEY) || '[]');
-      if (Array.isArray(qRaw)) queue = qRaw.filter(function (v) { return v === 'a' || v === 'b' || v === 'c'; });
+      if (Array.isArray(qRaw)) queue = qRaw.filter(function (v) { return v === 'a' || v === 'b' || v === 'c' || v === 'd'; });
     } catch (e) { queue = []; }
     if (!queue.length) {
-      queue = ['a', 'b', 'c'];
+      queue = ['a', 'b', 'c', 'd'];
       for (var qi = queue.length - 1; qi > 0; qi--) {
         var qj = Math.floor(Math.random() * (qi + 1));
         var qt = queue[qi]; queue[qi] = queue[qj]; queue[qj] = qt;
