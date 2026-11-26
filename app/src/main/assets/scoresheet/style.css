@@ -138,6 +138,8 @@ button.practice-open {
 .modal-box h3 { margin: 0 0 12px; font-size: 16px; }
 .foul-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
 .foul-types button { padding: 12px 4px; font-size: 16px; font-weight: bold; border: 1px solid #c62828; color: #c62828; background: #fff; border-radius: 8px; }
+.minute-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.minute-types button { padding: 12px 4px; font-size: 16px; font-weight: bold; border: 1px solid #37474f; color: #37474f; background: #fff; border-radius: 8px; }
 .foul-desc { font-size: 12px; color: #666; line-height: 1.7; margin: 2px 0 10px; text-align: left; }
 .panel-btns button:disabled { opacity: .55; }
 .modal-box .cancel { width: 100%; padding: 10px; border: 1px solid #999; background: #fff; border-radius: 8px; font-size: 14px; }

@@ -42,21 +42,25 @@ function defaultState() {
     events: [],        // {team, idx, no, pts, q} 得点イベント（時系列）
     fouls: [],         // {team, who: 選手index | 'coach' | 'acoach', type, q}
     participation: { A: {}, B: {} }, // idx -> { q: 's'(先発/) | 'i'(途中\) }
-    timeouts: { A: {}, B: {} },      // q -> [1]（取得済みの印。各Qに1回まで）
+    timeouts: { A: {}, B: {} },      // q -> [経過分]（公式の書き方。各Qに1回まで）
     toSeq: { A: {}, B: {} },         // timeouts と同じ形で、入力順(seq)を並行保持
     seqNext: 1,                      // 次に割り当てる入力順(seq)
     history: []
   };
 }
-/* タイムアウトは「取得済みかどうか」だけを持つ（各Qに1回まで）。
-   旧データ（経過分の配列）は、入っていれば取得済み1件に丸める。 */
+/* タイムアウトは各クォーターに1回までで、取った時点の「経過分」を持つ（公式の書き方）。
+   旧データ（v23〜v25の取得済み印 [1]、複数件入ったもの）は先頭の1件に丸める。 */
 function normalizeTimeouts(s) {
   if (!s || !s.timeouts) return s;
   ['A', 'B'].forEach(function (t) {
     var tos = s.timeouts[t];
     if (!tos) return;
     Object.keys(tos).forEach(function (q) {
-      if (Array.isArray(tos[q])) tos[q] = tos[q].length ? [1] : [];
+      if (Array.isArray(tos[q])) {
+        if (!tos[q].length) { tos[q] = []; return; }
+        var m0 = Number(tos[q][0]);
+        tos[q] = [isFinite(m0) && m0 >= 1 ? Math.floor(m0) : 1];
+      }
     });
   });
   return s;
@@ -488,7 +492,7 @@ function renderRecord() {
     var q = S.quarter;
     var tos = (S.timeouts[t][q] || []);
     var chips = tos.map(function (m, i) {
-      return '<span class="chip">' + q + ' 済<b data-act="delto" data-team="' + t + '" data-i="' + i + '">×</b></span>';
+      return '<span class="chip">' + q + ' ' + m + '分<b data-act="delto" data-team="' + t + '" data-i="' + i + '">×</b></span>';
     }).join('');
     var registered = registeredList(t);
     var rows;
@@ -586,7 +590,7 @@ document.getElementById('recordPanels').addEventListener('click', function (e) {
     foulTarget = { team: t, who: b.dataset.who !== undefined ? b.dataset.who : Number(b.dataset.idx) };
     openFoulModal();
   } else if (act === 'to') {
-    addTimeout(t);
+    openToModal(t, false);
   } else if (act === 'delto') {
     snapshot();
     S.timeouts[t][q].splice(Number(b.dataset.i), 1);
@@ -626,17 +630,20 @@ document.getElementById('foulCancel').addEventListener('click', function () {
 });
 
 /* ---------- タイムアウト ----------
-   ミニバスでは各クォーターに1回まで。時間（経過分）は記録せず、
-   取ったかどうかだけを記録する。取ったクォーターではボタンが
+   公式の書き方：ミニバスでは各クォーターに1回までで、取った時点の
+   「経過分」を記録する（6分クォーターで残り2分35秒のときに取ったら、
+   6−2で経過「4」分）。取ったクォーターではボタンが
    「タイムアウト済み」になって、もう取れない。 */
 function timeoutTaken(team, q) {
   return ((S.timeouts[team] || {})[q] || []).length > 0;
 }
-function addTimeout(team) {
+function addTimeout(team, minute) {
   if (timeoutTaken(team, S.quarter)) return false;
+  var mn = Math.floor(Number(minute));
+  if (!isFinite(mn) || mn < 1) mn = 1;
   snapshot();
   var arr = S.timeouts[team][S.quarter] || (S.timeouts[team][S.quarter] = []);
-  arr.push(1);
+  arr.push(mn);
   if (!S.toSeq) S.toSeq = { A: {}, B: {} };
   if (!S.toSeq[team]) S.toSeq[team] = {};
   var sarr = S.toSeq[team][S.quarter] || (S.toSeq[team][S.quarter] = []);
@@ -644,6 +651,38 @@ function addTimeout(team) {
   save(); renderRecord(); renderSheet();
   return true;
 }
+
+/* 経過分ピッカー（ボタンと音声で共用）。延長のクォーターは3分なので 1〜3分、
+   通常クォーターは6分なので 1〜6分から選ぶ。 */
+var toTarget = null;
+function openToModal(team, fromVoice) {
+  if (timeoutTaken(team, S.quarter)) return;
+  toTarget = { team: team, voice: !!fromVoice };
+  document.getElementById('toModalTitle').textContent =
+    teamLabel(team) + ' タイムアウト（' + qLabel(S.quarter) + '）';
+  var maxMin = (S.quarter === 'OT') ? 3 : 6;
+  var btns = '';
+  for (var m = 1; m <= maxMin; m++) {
+    btns += '<button type="button" data-min="' + m + '">' + m + '分</button>';
+  }
+  document.getElementById('toMinuteBtns').innerHTML = btns;
+  document.getElementById('toModal').classList.remove('hidden');
+}
+function closeToModal() {
+  toTarget = null;
+  document.getElementById('toModal').classList.add('hidden');
+}
+document.getElementById('toMinuteBtns').addEventListener('click', function (e) {
+  var b = e.target.closest('[data-min]');
+  if (!b || !toTarget) return;
+  var team = toTarget.team, wasVoice = toTarget.voice;
+  var mn = Number(b.dataset.min);
+  closeToModal();
+  if (addTimeout(team, mn) && wasVoice) {
+    voiceStatus('チーム' + team + 'のタイムアウト（経過' + mn + '分）を記録しました');
+  }
+});
+document.getElementById('toCancel').addEventListener('click', closeToModal);
 
 /* ---------- 記録の修正 ----------
    得点・ファウル・タイムアウトを入力順（seq）に1つの一覧で表示し、
@@ -708,7 +747,8 @@ function fixItemText(it) {
       : (f.who === 'coach' ? 'コーチ' : 'Aコーチ');
     return teamLabel(f.team) + ' ' + who + ' ファウル ' + f.type;
   }
-  return teamLabel(it.team) + ' タイムアウト';
+  var tmin = ((S.timeouts[it.team] || {})[it.q] || [])[it.ai];
+  return teamLabel(it.team) + ' タイムアウト' + (tmin ? ' ' + tmin + '分' : '');
 }
 /* 得点・ファウル・タイムアウトを横断した統合リスト（入力順） */
 function fixItems() {
@@ -820,8 +860,13 @@ function openEdit(it) {
       '<label class="flabel">ファウルの種別<select id="efType"></select></label>' +
       '<label class="flabel">クォーター<select id="efQ">' + quarterOptions(f.q) + '</select></label>';
   } else {
+    var curMin = ((S.timeouts[it.team] || {})[it.q] || [])[it.ai];
+    var minOpts = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (mm) {
+      return '<option value="' + mm + '"' + (mm === curMin ? ' selected' : '') + '>' + mm + '分</option>';
+    }).join('');
     fields =
-      '<p class="hint">タイムアウトは「取ったかどうか」の記録です。ここではクォーターの変更と削除ができます。</p>' +
+      '<p class="hint">タイムアウトの経過分とクォーターを変更できます。</p>' +
+      '<label class="flabel">経過分<select id="efMinute">' + minOpts + '</select></label>' +
       '<label class="flabel">クォーター<select id="efQ">' + quarterOptions(it.q) + '</select></label>';
   }
   document.getElementById('editFields').innerHTML = fields;
@@ -861,6 +906,7 @@ document.getElementById('editSave').addEventListener('click', function () {
     f.q = document.getElementById('efQ').value;
   } else {
     var nq = document.getElementById('efQ').value;
+    var nmin = Number(document.getElementById('efMinute').value);
     if (nq !== t.q && timeoutTaken(t.team, nq)) {
       alert('そのクォーターは、すでにタイムアウトを取っています。');
       return;
@@ -871,9 +917,11 @@ document.getElementById('editSave').addEventListener('click', function () {
       S.timeouts[t.team][t.q].splice(t.ai, 1);
       if (S.toSeq[t.team][t.q]) S.toSeq[t.team][t.q].splice(t.ai, 1);
       var arr = S.timeouts[t.team][nq] || (S.timeouts[t.team][nq] = []);
-      arr.push(1);
+      arr.push(nmin);
       var sarr = S.toSeq[t.team][nq] || (S.toSeq[t.team][nq] = []);
       sarr.push(typeof seq === 'number' ? seq : nextSeq());
+    } else {
+      S.timeouts[t.team][t.q][t.ai] = nmin;
     }
   }
   afterEdit();
@@ -1062,13 +1110,14 @@ function drawSheetCanvas() {
     if (team.name) {
       textL(ctx, 235, headCY[tt], team.name, fitSize(ctx, team.name, 46, 540, true), COL_BLACK, true);
     }
-    /* タイムアウト（取得済みなら○印） */
+    /* タイムアウト（取得済みなら経過分をそのクォーターの色で記入。公式の書き方） */
     var tos = S.timeouts[tt] || {};
     Object.keys(tos).forEach(function (qq0) {
       var col = toColIdx[qKey(qq0)];
       if (col === undefined) return;
-      if (!(tos[qq0] || []).length) return;
-      ellipseOutline(ctx, toCols[col], headCY[tt] + 38, 21, 21, COL_BLACK, 5);
+      var arrT = tos[qq0] || [];
+      if (!arrT.length) return;
+      textC(ctx, toCols[col], headCY[tt] + 38, String(arrT[0]), 40, qColorCanvas(qq0), true);
     });
     /* 選手別ファウル（時系列順） */
     var pfouls = {};
@@ -1936,12 +1985,24 @@ function handleVoiceCommand(rawText) {
     voiceStatus(heard + '対象チームをチーム' + nt + '（' + teamLabel(nt) + '）に切り替えました');
     return;
   }
-  /* タイムアウト：その場で記録する（各Qに1回まで） */
+  /* タイムアウト：経過分つき（「タイムアウト 4分」）ならそのまま記録し、
+     分が無ければ経過分ピッカーを開く（各Qに1回まで） */
   if (s.indexOf('タイムアウト') !== -1) {
-    if (addTimeout(voiceTeam)) {
-      voiceStatus(heard + 'チーム' + voiceTeam + 'のタイムアウトを記録しました');
-    } else {
+    if (timeoutTaken(voiceTeam, S.quarter)) {
       voiceStatus(heard + 'チーム' + voiceTeam + 'は、このクォーターのタイムアウトをすでに取っています');
+      return;
+    }
+    var mt = s.match(/(\d+)\s*分/);
+    if (mt) {
+      var mn = Number(mt[1]);
+      if (addTimeout(voiceTeam, mn)) {
+        voiceStatus(heard + 'チーム' + voiceTeam + 'のタイムアウト（経過' + mn + '分）を記録しました');
+      } else {
+        voiceStatus(heard + '記録しませんでした');
+      }
+    } else {
+      openToModal(voiceTeam, true);
+      voiceStatus(heard + 'チーム' + voiceTeam + 'のタイムアウトです。経過分を選んでください');
     }
     return;
   }
