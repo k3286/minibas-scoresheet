@@ -1433,11 +1433,13 @@ function drawSheetCanvas() {
           drawLine(ctx, foulX[cntF] + 4, cyF, 1256, cyF, COL_BLACK, 5);
         }
       }
-      /* 3. 未登録行のファウル欄: 全体に斜線1本 */
+      /* 3. 未登録行のファウル欄: 全体に斜線1本。
+         向きは公式記入例どおり左上→右下（項目8の未出場ブロックと同じ向き。
+         旧コードは右上がりで逆だった。2026-11-26 公式記入例で確認して修正） */
       if (nReg > 0 && nReg < rosterSize) {
         var uy0 = rowTop0[tt] + nReg * 59;
         var uy1 = rowTop0[tt] + rosterSize * 59;
-        drawLine(ctx, foulX[0] + 4, uy1 - 4, foulX[5] - 4, uy0 + 4, COL_BLACK, 5);
+        drawLine(ctx, foulX[0] + 4, uy0 + 4, foulX[5] - 4, uy1 - 4, COL_BLACK, 5);
       }
       /* 8. 未出場の選手の斜線: 登録済みで出場記録が1つもない選手が表の下端に
          2人以上続く場合、その範囲のファウル欄に斜線1本（実物の締め方）。
