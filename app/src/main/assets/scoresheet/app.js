@@ -1275,8 +1275,21 @@ function drawSheetCanvas() {
         var yReg = rowTop0[tt] + nReg * 59;
         drawLine(ctx, 119, yReg, 1260, yReg, COL_BLACK, 6);
       }
-      /* 2. 選手ファウル欄: 記録済みファウルの次のセルから右端まで横線 */
+      /* 未出場ブロックの範囲を先に求める（項目2と8で使う）:
+         登録済みで出場記録が1つもない選手が、表の下端に続く範囲 */
+      var partBlk = S.participation[tt] || {};
+      var bBlk = nReg - 1;
+      while (bBlk >= 0) {
+        var ppBlk = partBlk[bBlk];
+        if (ppBlk && Object.keys(ppBlk).length > 0) break;
+        bBlk--;
+      }
+      var blkStart = (nReg - 1 - bBlk >= 2) ? bBlk + 1 : -1;
+      /* 2. 選手ファウル欄: 記録済みファウルの次のセルから右端まで横線。
+         未出場ブロック（2人以上）の選手は斜線（項目8）だけにして、
+         横線と斜線が交差しないようにする（実物の締め方、2026-11-26の写真で確認） */
       for (var ii = 0; ii < nReg; ii++) {
+        if (blkStart >= 0 && ii >= blkStart) continue;
         var cntF = Math.min((pfoulsC[ii] || []).length, 5);
         if (cntF < 5) {
           var cyF = rowTop0[tt] + ii * 59 + 29;
@@ -1291,21 +1304,15 @@ function drawSheetCanvas() {
       }
       /* 8. 未出場の選手の斜線: 登録済みで出場記録が1つもない選手が表の下端に
          2人以上続く場合、その範囲のファウル欄に斜線1本（実物の締め方）。
-         1人だけの場合は引かない（項目2の横線のみ） */
-      var partBlk = S.participation[tt] || {};
-      var bBlk = nReg - 1;
-      while (bBlk >= 0) {
-        var ppBlk = partBlk[bBlk];
-        if (ppBlk && Object.keys(ppBlk).length > 0) break;
-        bBlk--;
-      }
-      if (nReg - 1 - bBlk >= 2) {
-        var y0Blk = rowTop0[tt] + (bBlk + 1) * 59;
+         斜線はファウル欄の左端（x=975）から引く。1人だけの場合は引かない
+         （項目2の横線のみ） */
+      if (blkStart >= 0) {
+        var y0Blk = rowTop0[tt] + blkStart * 59;
         var y1Blk = rowTop0[tt] + nReg * 59;
-        drawLine(ctx, 947, y0Blk + 2, 1260, y1Blk - 2, COL_BLACK, 5);
+        drawLine(ctx, foulX[0], y0Blk + 2, 1260, y1Blk - 2, COL_BLACK, 5);
         /* あわせてブロック先頭行の出場時限セル（①〜④）の中央に横線1本。
            2行目以降には引かない（実物の締め方、写真2枚目で確認） */
-        drawLine(ctx, 749, y0Blk + 29, 973, y0Blk + 29, COL_BLACK, 5);
+        drawLine(ctx, partX[0], y0Blk + 29, foulX[0], y0Blk + 29, COL_BLACK, 5);
       }
       /* 4. コーチ・Aコーチ行のファウル欄: 記録済みファウルの次のセルから右端まで横線（選手と同じ） */
       [[coachTop[tt], 'coach'], [acoachTop[tt], 'acoach']].forEach(function (ctC) {
@@ -1361,6 +1368,53 @@ function drawSheetCanvas() {
       var x1T = tt === 'A' ? baseT + 128 : baseT + 256;
       var y0T = 847 + (rT + 1) * 59;
       drawLine(ctx, x0T + 2, y0T + 2, x1T - 2, 3205, COL_BLACK, 5);
+    });
+  }
+
+  /* ---------- ファウルの太線（JBA TOマニュアルの決まり） ----------
+     第2Qの終わりとゲームの終わりに、使用した枠と未使用の枠の間に
+     濃色（黒）で太線を引く。第2Qの終わりでは前半（1・2Q）のファウルと
+     後半のファウルの区切りになり、ゲームの終わりでは記録したファウル
+     全体の締めになる。線は、区切り位置の縦線と、使った枠の下線で引く
+     （実物のシートの太線の形、2026-11-26の写真で確認）。
+     第3Q以降（または試合終了時）に表示する。 */
+  var pastHalf = game.finished || ['3', '4', '5'].indexOf(qKey(S.quarter)) !== -1;
+  if (pastHalf) {
+    ['A', 'B'].forEach(function (tt) {
+      var team = teams[tt];
+      var nRegT = 0;
+      team.players.forEach(function (p, idx) {
+        var hasName = String(p.name || '').replace(/^\s+|\s+$/g, '') !== '';
+        var hasNo = String(p.no == null ? '' : p.no).replace(/^\s+|\s+$/g, '') !== '';
+        if (hasName || hasNo) nRegT = idx + 1;
+      });
+      var pfoulsT = {};
+      S.fouls.forEach(function (f) {
+        if (f.team === tt) {
+          (pfoulsT[f.who] || (pfoulsT[f.who] = [])).push(f);
+        }
+      });
+      function thickMark(fl, top) {
+        if (!fl || !fl.length) return;
+        var bounds = {};
+        var lastHalf = -1;
+        fl.forEach(function (f, j) {
+          var kk = qKey(f.q);
+          if (kk === '1' || kk === '2') lastHalf = j;
+        });
+        if (lastHalf >= 0) bounds[lastHalf + 1] = true;
+        if (game.finished && fl.length < 5) bounds[fl.length] = true;
+        Object.keys(bounds).forEach(function (b) {
+          var bx = foulX[Number(b)];
+          drawLine(ctx, bx, top + 2, bx, top + 57, COL_BLACK, 8);
+          drawLine(ctx, foulX[0], top + 57, bx, top + 57, COL_BLACK, 8);
+        });
+      }
+      for (var iiT = 0; iiT < nRegT; iiT++) {
+        thickMark(pfoulsT[iiT], rowTop0[tt] + iiT * 59);
+      }
+      thickMark(pfoulsT.coach, coachTop[tt]);
+      thickMark(pfoulsT.acoach, acoachTop[tt]);
     });
   }
 
