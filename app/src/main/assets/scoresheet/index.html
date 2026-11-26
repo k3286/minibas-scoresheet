@@ -55,7 +55,7 @@
       <label>ショットクロックオペレイター <span class="input-row"><input type="text" id="gShotClock"><button type="button" class="mic-btn" title="音声入力">🎤</button></span></label>
     </div>
     <h2>ルール設定</h2>
-    <div class="form-grid">
+    <div class="form-grid checks">
       <label class="check"><input type="checkbox" id="gUse3pt"> 3ポイントを採用する</label>
       <label class="check"><input type="checkbox" id="gFinished"> 試合終了（最終スコアを確定）</label>
     </div>
@@ -72,14 +72,14 @@
     <h2>データのバックアップと画面</h2>
     <p class="hint">試合データを1つのファイルに書き出しておくと、機種変更や故障のときに、そのファイルから元通りに戻せます。進行中の試合・過去の試合・れんしゅうモードのデータが全部入ります。書き出したファイルは、Googleドライブなどに置いておくと安心です。</p>
     <div>
-      <button id="btnBackupExport" type="button">💾 バックアップを書き出す</button>
-      <button id="btnBackupImport" type="button">📂 バックアップから戻す</button>
+      <button id="btnBackupExport" type="button" class="btn-line">💾 バックアップを書き出す</button>
+      <button id="btnBackupImport" type="button" class="btn-line">📂 バックアップから戻す</button>
     </div>
     <input type="file" id="backupFileInput" accept=".json,application/json" style="display:none">
     <p class="hint">「試合終了」にチェックすると、その時点のデータをアプリ内に自動でも保存します（自動バックアップ、最大3件）。アプリ内のうっかり操作への保険です。端末の故障や機種変更に備えるには、上のファイル書き出しもあわせてどうぞ。</p>
     <p class="hint" id="autoBackupInfo"></p>
     <div>
-      <button id="btnAutoBackupRestore" type="button">↩ 自動バックアップから戻す</button>
+      <button id="btnAutoBackupRestore" type="button" class="btn-line">↩ 自動バックアップから戻す</button>
     </div>
     <div class="form-grid" style="margin-top:14px">
       <label class="check"><input type="checkbox" id="chkKeepScreenOn"> 試合中は画面を消さない（スリープ防止）</label>
@@ -141,10 +141,14 @@
   <!-- ===== 公式シート ===== -->
   <section id="tab-sheet" class="tabpage">
     <div class="sheet-actions noprint">
-      <button id="btnSaveImage" type="button">🖼 画像として保存</button>
-      <button id="btnSavePdf" type="button">📄 PDFで保存</button>
-      <button id="btnSharePdf" type="button">📤 PDFを共有</button>
-      <button id="btnShareImage" type="button">📤 画像を共有</button>
+      <span class="sa-group">
+        <button id="btnSaveImage" type="button" data-act="saveImage">🖼 画像として保存</button>
+        <button id="btnShareImage" type="button" data-act="shareImage">📤 画像を共有</button>
+      </span>
+      <span class="sa-group">
+        <button id="btnSavePdf" type="button" data-act="savePdf">📄 PDFで保存</button>
+        <button id="btnSharePdf" type="button" data-act="sharePdf">📤 PDFを共有</button>
+      </span>
       <span class="hint">JBA公式様式の画像の上に、記録した内容をそのまま描いたシートです。PDFや画像で保存できます。</span>
     </div>
     <div class="sheet-zoom noprint">
@@ -155,6 +159,16 @@
     </div>
     <div class="sheet-scroll">
       <canvas id="sheetCanvas" width="2481" height="3509"></canvas>
+    </div>
+    <div class="sheet-actions sheet-actions-bottom noprint">
+      <span class="sa-group">
+        <button type="button" data-act="saveImage">🖼 画像として保存</button>
+        <button type="button" data-act="shareImage">📤 画像を共有</button>
+      </span>
+      <span class="sa-group">
+        <button type="button" data-act="savePdf">📄 PDFで保存</button>
+        <button type="button" data-act="sharePdf">📤 PDFを共有</button>
+      </span>
     </div>
   </section>
 </main>

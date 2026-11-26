@@ -166,7 +166,7 @@ function renderRoster() {
         '<td><span class="input-row"><input data-team="' + t + '" data-idx="' + i + '" data-field="name" value="' + esc(p.name) + '" placeholder="選手氏名"><button type="button" class="mic-btn" title="音声入力">🎤</button></span></td>' +
         '<td><input class="lic" data-team="' + t + '" data-idx="' + i + '" data-field="license" value="' + esc(p.license) + '" maxlength="3" inputmode="numeric" placeholder="3桁"></td></tr>';
     }).join('');
-    return '<div class="team-editor">' +
+    return '<div class="team-editor team-editor-' + t.toLowerCase() + '">' +
       '<h3>チーム' + t + '</h3>' +
       '<div class="row">' +
       '<input class="tname" data-team="' + t + '" data-field="name" value="' + esc(team.name) + '" placeholder="チーム名">' +
@@ -1783,8 +1783,8 @@ function saveSheetPdf() {
     fallbackDataUrl();
   }
 }
-document.getElementById('btnSaveImage').addEventListener('click', saveSheetImage);
-document.getElementById('btnSavePdf').addEventListener('click', saveSheetPdf);
+/* 保存・共有ボタンの配線は、共有セクション末尾の委譲ハンドラに一本化
+   （シート下部にも同じボタンを置くため、data-act で振り分ける） */
 
 /* ---------- シートの共有 ----------
    保存ではなく、LINE などのアプリへ直接送る。Android アプリ内では
@@ -1863,8 +1863,16 @@ function shareSheetImage() {
     alert('画像の作成に失敗しました。');
   }
 }
-document.getElementById('btnSharePdf').addEventListener('click', shareSheetPdf);
-document.getElementById('btnShareImage').addEventListener('click', shareSheetImage);
+/* 保存・共有ボタン（シート上部と下部の両方）を data-act で振り分ける */
+document.getElementById('tab-sheet').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-act]');
+  if (!b) return;
+  var act = b.dataset.act;
+  if (act === 'saveImage') saveSheetImage();
+  else if (act === 'shareImage') shareSheetImage();
+  else if (act === 'savePdf') saveSheetPdf();
+  else if (act === 'sharePdf') shareSheetPdf();
+});
 
 /* 公式シートプレビューの拡大・縮小（スマホでは全体表示だと文字が読めないため。
    表示だけの拡大で、保存される画像・PDFには影響しない）
@@ -1912,12 +1920,55 @@ document.getElementById('btnUndo').addEventListener('click', undo);
 /* ---------- れんしゅうモード ----------
    本番データ（STORE_KEY）とは別の保存先を使い、架空のサンプル試合で
    自由に練習できる。子どもや初めてのTOが本番前に触るためのモード。 */
+/* 練習モードの見本選手（架空）。各チーム15人分の名前を用意し、
+   実際に登録するのは14人か15人（ランダム）にする */
+var PRACTICE_POOL = {
+  A: [['4', '佐藤さくら', '101'], ['5', '鈴木あおい', '102'], ['6', '高橋ゆい', '103'],
+      ['7', '田中りん', '104'], ['8', '伊藤めい', '105'], ['9', '渡辺ほのか', '106'],
+      ['10', '山本ことね', '107'], ['11', '中村すず', '108'], ['12', '小林はな', '109'],
+      ['13', '加藤ゆず', '110'], ['14', '斉藤ゆら', '111'], ['15', '近藤あんな', '112'],
+      ['16', '坂本りお', '113'], ['17', '藤田ももか', '114'], ['18', '西村ひより', '115']],
+  B: [['4', '山田みく', '201'], ['5', '佐々木れな', '202'], ['6', '井上かえで', '203'],
+      ['7', '山口つむぎ', '204'], ['8', '松本しおり', '205'], ['9', '木村のぞみ', '206'],
+      ['10', '林あかり', '207'], ['11', '清水まお', '208'], ['12', '森ことり', '209'],
+      ['13', '石川るな', '210'], ['14', '村田さや', '211'], ['15', '大野ちひろ', '212'],
+      ['16', '岡田りんか', '213'], ['17', '長谷川ゆめ', '214'], ['18', '吉田あんず', '215']]
+};
+function practicePlayers(t) {
+  var n = 14 + Math.floor(Math.random() * 2); /* 14人か15人 */
+  var pool = PRACTICE_POOL[t];
+  var players = [];
+  for (var i = 0; i < 15; i++) {
+    if (i < n) players.push({ no: pool[i][0], name: pool[i][1], license: pool[i][2] });
+    else players.push({ no: '', name: '', license: '' });
+  }
+  return players;
+}
 function practiceSeed() {
-  var s = JSON.parse('{"game":{"tournament":"れんしゅうカップ","date":"","time":"","venue":"みどり小学校","gameNo":"","endTime":"","crewChief":"","umpire":"","scorer":"","timer":"","aScorer":"","shotClock":"","use3pt":false,"finished":false},"teams":{"A":{"name":"さくらミニバス","color":"白","coach":{"name":"佐々木 健","license":"047"},"acoach":{"name":"中村 翔","license":"059"},"players":[{"no":"4","name":"佐藤さくら","license":"101"},{"no":"5","name":"鈴木あおい","license":"102"},{"no":"6","name":"高橋ゆい","license":"103"},{"no":"7","name":"田中りん","license":"104"},{"no":"8","name":"伊藤めい","license":"105"},{"no":"9","name":"渡辺ほのか","license":"106"},{"no":"10","name":"山本ことね","license":"107"},{"no":"11","name":"中村すず","license":"108"},{"no":"12","name":"小林はな","license":"109"},{"no":"13","name":"加藤ゆず","license":"110"},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""}]},"B":{"name":"ひまわりミニバス","color":"青","coach":{"name":"高田 修","license":"078"},"acoach":{"name":"青木 翔","license":"082"},"players":[{"no":"4","name":"山田みく","license":"201"},{"no":"5","name":"佐々木れな","license":"202"},{"no":"6","name":"井上かえで","license":"203"},{"no":"7","name":"山口つむぎ","license":"204"},{"no":"8","name":"松本しおり","license":"205"},{"no":"9","name":"木村のぞみ","license":"206"},{"no":"10","name":"林あかり","license":"207"},{"no":"11","name":"清水まお","license":"208"},{"no":"12","name":"森ことり","license":"209"},{"no":"13","name":"石川るな","license":"210"},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""},{"no":"","name":"","license":""}]}},"quarter":"1","events":[],"fouls":[],"participation":{"A":{},"B":{}},"timeouts":{"A":{},"B":{}},"toSeq":{"A":{},"B":{}},"seqNext":1,"history":[]}');
+  var s = {
+    game: { tournament: 'れんしゅうカップ', date: '', time: '', venue: 'みどり小学校', gameNo: '', endTime: '', crewChief: '', umpire: '', scorer: '', timer: '', aScorer: '', shotClock: '', use3pt: false, finished: false },
+    teams: {
+      A: { name: 'さくらミニバス', color: '白', coach: { name: '佐々木 健', license: '047' }, acoach: { name: '中村 翔', license: '059' }, players: practicePlayers('A') },
+      B: { name: 'ひまわりミニバス', color: '青', coach: { name: '高田 修', license: '078' }, acoach: { name: '青木 翔', license: '082' }, players: practicePlayers('B') }
+    },
+    quarter: '1', events: [], fouls: [], participation: { A: {}, B: {} },
+    timeouts: { A: {}, B: {} }, toSeq: { A: {}, B: {} }, seqNext: 1, history: []
+  };
   var d = new Date();
   function p2(n) { return (n < 10 ? '0' : '') + n; }
   s.game.date = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
   return s;
+}
+/* 保存済みの練習データが旧見本（各チーム10人）のままかどうか */
+function isOldPracticeSeed(st) {
+  if (!st || !st.teams) return false;
+  return ['A', 'B'].every(function (t) {
+    var ps = (st.teams[t] && st.teams[t].players) || [];
+    for (var i = 0; i < 10; i++) {
+      if (!ps[i] || ps[i].name !== PRACTICE_POOL[t][i][1]) return false;
+    }
+    return !(ps[10] && ps[10].name);
+  });
 }
 function refreshAll() {
   bindInfo(); renderRoster(); renderRecord(); renderSheet(); renderFix(); renderArchive(); updatePracticeUI();
@@ -1943,6 +1994,9 @@ function enterPractice() {
   /* 練習データが空（選手が一人もいない）ときは、見本の選手で入れ直す。
      「新しい試合」で空の状態が保存されてしまっても、入り直せば復活する */
   if (!st || (!stateHasPlayers(st) && !(st.events || []).length)) st = practiceSeed();
+  /* 旧見本（各チーム10人）のまま一度も記録されていない練習データは、
+     新しい見本（14〜15人）に入れ替える。記録が入っているものは触らない */
+  if (st && !(st.events || []).length && !(st.fouls || []).length && isOldPracticeSeed(st)) st = practiceSeed();
   S = st;
   save(); refreshAll();
   /* 練習モードの知らせは緑の帯（practiceBanner）で常時分かるので、

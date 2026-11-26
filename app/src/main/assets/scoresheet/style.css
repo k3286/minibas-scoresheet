@@ -47,6 +47,9 @@ button.danger { background: #c62828; color: #fff; border: none; padding: 10px 14
 
 /* 選手登録 */
 .team-editor { background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+/* 記録タブのパネルと同じ色分け（A=白系グレー、B=青）で画面間の見分けを揃える */
+.team-editor-a { border-top: 6px solid #9e9e9e; }
+.team-editor-b { border-top: 6px solid #1565c0; background: #e9f2fd; }
 .team-editor h3 { margin: 0 0 10px; font-size: 16px; }
 .team-editor .row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .team-editor input { padding: 8px; border: 1px solid #bbb; border-radius: 6px; font-size: 14px; }
@@ -147,7 +150,9 @@ button.practice-open {
 .modal-row { display: flex; gap: 8px; }
 .modal-row button { flex: 1; padding: 11px; border-radius: 8px; font-size: 14px; }
 .modal-row #toSave { background: #e65100; color: #fff; border: none; font-weight: bold; }
-.sheet-actions { margin-bottom: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sheet-actions { margin-bottom: 10px; display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; }
+.sheet-actions .sa-group { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.sheet-actions-bottom { margin-top: 10px; margin-bottom: 2px; }
 .sheet-actions button { background: #e65100; color: #fff; border: none; padding: 11px 16px; border-radius: 8px; font-size: 15px; font-weight: bold; }
 .sheet-scroll { overflow: auto; max-height: 78vh; background: #888; padding: 10px; border-radius: 8px; }
 .sheet-zoom { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
@@ -293,6 +298,13 @@ button.practice-open {
 .tf-chip .tf-num { margin-left: auto; font-size: 26px; font-weight: bold; color: #e65100; line-height: 1; }
 /* 名簿の保存・呼び出しボタンと選択リスト */
 .team-editor .roster-save, .team-editor .roster-load { padding: 9px 12px; border: 1px solid #37474f; color: #37474f; background: #fff; border-radius: 8px; font-size: 14px; margin-right: 8px; }
+/* 白枠ボタンの共通スタイル（バックアップ系も同じ見た目に揃える） */
+.btn-line { padding: 9px 12px; border: 1px solid #37474f; color: #37474f; background: #fff; border-radius: 8px; font-size: 14px; }
+.btn-line:disabled { opacity: .55; }
+/* 狭い画面ではルール設定のチェックを縦並びにして、ラベルの中途半端な改行を防ぐ */
+@media (max-width: 600px) {
+  .form-grid.checks { grid-template-columns: 1fr; }
+}
 .pick-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; max-height: 50vh; overflow-y: auto; }
 .pick-item { text-align: left; padding: 11px 12px; border: 1px solid #999; background: #fff; border-radius: 8px; font-size: 15px; }
 .pick-item .pick-sub { display: block; font-size: 12px; color: #666; margin-top: 2px; }
