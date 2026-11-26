@@ -1107,14 +1107,20 @@ function drawSheetCanvas() {
         textC(ctx, cx, cy, f.type, fitSize(ctx, f.type, 28, 50, true), qColorCanvas(f.q), true);
       });
     });
-    /* コーチ・Aコーチ（ライセンス欄は氏名欄の左 291-462、氏名は x=472 から） */
-    [[team.coach, coachTop[tt]], [team.acoach, acoachTop[tt]]].forEach(function (ct) {
+    /* コーチ・Aコーチ（ライセンス欄は氏名欄の左 291-462、氏名は x=472 から。
+       ファウル（C/B/M）も選手と同じくファウル欄に時系列順で描く） */
+    [[team.coach, coachTop[tt], 'coach'], [team.acoach, acoachTop[tt], 'acoach']].forEach(function (ct) {
       var person = ct[0];
       var cy2 = ct[1] + 29;
       drawLicense(ctx, person.license, [320, 377, 434], cy2);
       if (person.name) {
         textL(ctx, 472, cy2, person.name, fitSize(ctx, person.name, 34, 208, false), COL_BLACK);
       }
+      var cflist = (pfouls[ct[2]] || []).slice(0, 5);
+      cflist.forEach(function (f, j) {
+        var cx = Math.floor((foulX[j] + foulX[j + 1]) / 2);
+        textC(ctx, cx, cy2, f.type, fitSize(ctx, f.type, 28, 50, true), qColorCanvas(f.q), true);
+      });
     });
   });
   /* Bチームのユニフォーム色（Aの「（白）」は印刷済み。Bは括弧内が空白のため描く） */
@@ -1130,7 +1136,9 @@ function drawSheetCanvas() {
   ['A', 'B'].forEach(function (tt) {
     var counts = {};
     S.fouls.forEach(function (f) {
-      if (f.team === tt) {
+      /* コーチ・ベンチのテクニカル（C/B）とマンツーマンペナルティ（M）は
+         チームファウルに数えない（TOの決まり）。数えるのは選手のファウルだけ */
+      if (f.team === tt && f.who !== 'coach' && f.who !== 'acoach') {
         var kk = qKey(f.q);
         counts[kk] = (counts[kk] || 0) + 1;
       }
@@ -1250,9 +1258,12 @@ function drawSheetCanvas() {
            2行目以降には引かない（実物の締め方、写真2枚目で確認） */
         drawLine(ctx, 749, y0Blk + 29, 973, y0Blk + 29, COL_BLACK, 5);
       }
-      /* 4. コーチ・Aコーチ行のファウル欄: 全セルに横線 */
-      [coachTop[tt], acoachTop[tt]].forEach(function (topC) {
-        drawLine(ctx, foulX[0] + 4, topC + 29, 1256, topC + 29, COL_BLACK, 5);
+      /* 4. コーチ・Aコーチ行のファウル欄: 記録済みファウルの次のセルから右端まで横線（選手と同じ） */
+      [[coachTop[tt], 'coach'], [acoachTop[tt], 'acoach']].forEach(function (ctC) {
+        var cntC = Math.min((pfoulsC[ctC[1]] || []).length, 5);
+        if (cntC < 5) {
+          drawLine(ctx, foulX[cntC] + 4, ctC[0] + 29, 1256, ctC[0] + 29, COL_BLACK, 5);
+        }
       });
       /* 5. タイムアウト: 使わなかった枠に横線2本（そのQの色） */
       var tosC = S.timeouts[tt] || {};
@@ -1268,10 +1279,11 @@ function drawSheetCanvas() {
         drawLine(ctx, cxT - 22, cyT - 9, cxT + 22, cyT - 9, colT, 4);
         drawLine(ctx, cxT - 22, cyT + 9, cxT + 22, cyT + 9, colT, 4);
       });
-      /* 6. チームファウル: 使わなかった数字の枠に縦線2本（そのQの色。コーチファウルも件数に含む） */
+      /* 6. チームファウル: 使わなかった数字の枠に縦線2本（そのQの色。
+         コーチ・ベンチのテクニカルとマンツーマンペナルティはチームファウルに数えない） */
       var tfCounts = {};
       S.fouls.forEach(function (f) {
-        if (f.team === tt) {
+        if (f.team === tt && f.who !== 'coach' && f.who !== 'acoach') {
           var kk3 = qKey(f.q);
           tfCounts[kk3] = (tfCounts[kk3] || 0) + 1;
         }
