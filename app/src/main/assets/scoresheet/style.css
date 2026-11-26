@@ -366,3 +366,38 @@ button.practice-open {
 .bg-swatch.selected { border-color: #e65100; box-shadow: 0 0 0 2px rgba(230,81,0,.30); font-weight: bold; }
 .bg-slider { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 14px; }
 .bg-slider input[type="range"] { flex: 1; }
+
+/* 起動時のバインダー表紙 */
+#binderCover {
+  position: fixed; inset: 0; z-index: 9999; display: flex;
+  background: linear-gradient(135deg, #262861, #1a1c53 60%, #141539);
+  transform-origin: left center;
+  transition: transform .7s ease-in, opacity .7s ease-in;
+}
+#binderCover.opening {
+  transform: perspective(1200px) rotateY(-102deg);
+  opacity: 0;
+}
+.binder-spine {
+  width: 46px; flex: none; background: rgba(0,0,0,.28);
+  border-right: 2px solid rgba(255,255,255,.14);
+  display: flex; flex-direction: column;
+  justify-content: space-evenly; align-items: center;
+}
+.binder-ring {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 5px solid #c9ced6; background: #10122e;
+  box-shadow: 0 1px 3px rgba(0,0,0,.5);
+}
+.binder-main {
+  flex: 1; position: relative; color: #fff; text-align: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.binder-ball { font-size: 44px; margin-bottom: 10px; }
+.binder-title { font-size: 34px; font-weight: bold; letter-spacing: 3px; line-height: 1.45; }
+.binder-version { margin-top: 20px; font-size: 16px; opacity: .85; }
+.binder-credit {
+  position: absolute; left: 0; right: 0; bottom: 36px;
+  font-size: 15px; opacity: .92;
+}

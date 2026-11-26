@@ -2855,6 +2855,25 @@ window.onOcrError = function (code) {
   voiceStatus(msg + '（エラー ' + code + '）');
 };
 
+/* ---------- 起動時のバインダー表紙 ----------
+   起動直後は表紙を見せ、約1秒で左へ開くアニメーションで外す。
+   タップすればすぐ開く。演出だけなので、初期化はこの下で通常どおり進む。 */
+(function binderIntro() {
+  var cover = document.getElementById('binderCover');
+  if (!cover) return;
+  var done = false;
+  function open() {
+    if (done) return;
+    done = true;
+    cover.classList.add('opening');
+    setTimeout(function () {
+      if (cover.parentNode) cover.parentNode.removeChild(cover);
+    }, 760);
+  }
+  cover.addEventListener('click', open);
+  setTimeout(open, 950);
+})();
+
 /* ---------- 初期化 ---------- */
 ensureSeq();
 bindInfo();
