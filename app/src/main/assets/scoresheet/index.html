@@ -121,7 +121,7 @@
   <img class="cover-art art-tiger" src="cover_tiger.svg" alt="">
   <div class="binder-main">
     <div class="binder-title">ミニバス<br>スコアシート</div>
-    <div class="binder-version" id="binderVersion">バージョン 1.58</div>
+    <div class="binder-version" id="binderVersion">バージョン 1.59</div>
     <div class="binder-credit">作：バスケおっさん</div>
   </div>
       </div>
@@ -158,10 +158,10 @@
   <section id="tab-info" class="tabpage active">
     <h2>試合情報</h2>
     <div class="form-grid">
-      <label>大会名 <span class="input-row"><input type="text" id="gTournament" placeholder="例）第○回 ミニバスケットボール大会"><button type="button" class="mic-btn" title="音声入力">🎤</button></span></label>
+      <label class="hist-label">大会名 <span class="input-row"><input type="text" id="gTournament" placeholder="例）第○回 ミニバスケットボール大会"><button type="button" class="mic-btn" title="音声入力">🎤</button><button type="button" class="hist-btn" data-hist-btn="tournament" title="履歴から選ぶ">▼</button></span><div class="hist-list" id="tournamentHist" style="display:none"></div></label>
       <label>日付 <input type="date" id="gDate"></label>
       <label>開始時間 <input type="time" id="gTime"></label>
-      <label>会場 <span class="input-row"><input type="text" id="gVenue"><button type="button" class="mic-btn" title="音声入力">🎤</button></span></label>
+      <label class="hist-label">会場 <span class="input-row"><input type="text" id="gVenue"><button type="button" class="mic-btn" title="音声入力">🎤</button><button type="button" class="hist-btn" data-hist-btn="venue" title="履歴から選ぶ">▼</button></span><div class="hist-list" id="venueHist" style="display:none"></div></label>
       <label>試合No.（Game No.） <span class="input-row"><input type="text" id="gGameNo" placeholder="例）2"><button type="button" class="mic-btn" title="音声入力">🎤</button></span></label>
       <label>試合終了時間 <input type="time" id="gEndTime"></label>
     </div>

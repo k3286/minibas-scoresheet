@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-var APP_VERSION = '1.58';
+var APP_VERSION = '1.59';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
@@ -176,7 +176,85 @@ function bindInfo() {
     /* 試合終了にしたら、その時点のデータを自動バックアップする（v29） */
     if (cf.checked && typeof runAutoBackup === 'function') runAutoBackup();
   };
+  closeHistLists();
 }
+
+/* ---------- 履歴ドロップダウン（大会名・会場） ----------
+   過去の試合（アーカイブ）に記録された大会名・会場を、入力欄にフォーカス
+   したときに欄の下へドロップダウンで出す。アーカイブは新しい順に並んで
+   いるので、その順のまま重複を取り除き、空のものと今入力されている値を
+   除いて最大8件まで。項目を選ぶと、通常の手入力と同じ保存経路で値が入る。
+   履歴が無い欄では何も出ない。欄の外をタップすると閉じる。 */
+var HIST_FIELDS = [
+  { input: 'gTournament', list: 'tournamentHist', field: 'tournament' },
+  { input: 'gVenue', list: 'venueHist', field: 'venue' }
+];
+function historyValues(field) {
+  var cur = trimStr(S.game[field]);
+  var seen = {}, out = [];
+  loadArchive().forEach(function (item) {
+    var v = (item && item.state && item.state.game) ? trimStr(item.state.game[field]) : '';
+    if (!v || v === cur || seen[v]) return;
+    seen[v] = true;
+    out.push(v);
+  });
+  return out.slice(0, 8);
+}
+function closeHistLists() {
+  HIST_FIELDS.forEach(function (h) {
+    var list = document.getElementById(h.list);
+    if (list) { list.innerHTML = ''; list.style.display = 'none'; }
+  });
+}
+function openHistList(h) {
+  var list = document.getElementById(h.list);
+  if (!list) return;
+  var values = historyValues(h.field);
+  closeHistLists();
+  if (!values.length) return;
+  list.innerHTML = values.map(function (v) {
+    return '<button type="button" class="hist-item" data-hist-value="' + esc(v) + '">' + esc(v) + '</button>';
+  }).join('');
+  list.style.display = '';
+}
+HIST_FIELDS.forEach(function (h) {
+  var el = document.getElementById(h.input);
+  if (el) {
+    el.onfocus = function () { openHistList(h); };
+    el.onclick = function () { openHistList(h); };
+  }
+  var list = document.getElementById(h.list);
+  if (list) {
+    list.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-hist-value]');
+      if (!btn) return;
+      var input = document.getElementById(h.input);
+      input.value = btn.dataset.histValue;
+      S.game[h.field] = input.value; save();
+      closeHistLists();
+    });
+  }
+});
+document.querySelectorAll('[data-hist-btn]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var h = null;
+    HIST_FIELDS.forEach(function (x) { if (x.field === btn.dataset.histBtn) h = x; });
+    if (!h) return;
+    var list = document.getElementById(h.list);
+    if (list && list.style.display !== 'none') { closeHistLists(); return; }
+    document.getElementById(h.input).focus();
+    openHistList(h);
+  });
+});
+document.addEventListener('pointerdown', function (e) {
+  HIST_FIELDS.forEach(function (h) {
+    var list = document.getElementById(h.list);
+    if (!list || list.style.display === 'none') return;
+    var label = list.closest('label');
+    if (label && label.contains(e.target)) return;
+    list.innerHTML = ''; list.style.display = 'none';
+  });
+});
 
 /* ---------- 選手登録 ---------- */
 function renderRoster() {
