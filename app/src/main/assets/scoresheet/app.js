@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-var APP_VERSION = '1.51';
+var APP_VERSION = '1.52';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
@@ -2856,31 +2856,33 @@ window.onOcrError = function (code) {
   if (!cover) return;
   var bv = document.getElementById('binderVersion');
   if (bv) bv.textContent = 'バージョン ' + APP_VERSION;
-  /* 表紙の絵柄: ダンク(a)／ボール(b)／コート(c) は「順番ローテーション」で
-     必ず一巡する（完全ランダムだと、たまたま同じ絵柄ばかり続くため）。
-     レア金(rare) だけは毎回10%の抽選で割り込む。 */
-  var COVER_QUEUE_KEY = 'minibas-scoresheet-cover-queue-v1';
-  var variant;
-  if (Math.random() < 0.10) {
-    variant = 'rare';
-  } else {
-    var queue = [];
-    try {
-      var qRaw = JSON.parse(localStorage.getItem(COVER_QUEUE_KEY) || '[]');
-      if (Array.isArray(qRaw)) queue = qRaw.filter(function (v) { return v === 'a' || v === 'b' || v === 'c' || v === 'd'; });
-    } catch (e) { queue = []; }
-    if (!queue.length) {
-      queue = ['a', 'b', 'c', 'd'];
-      for (var qi = queue.length - 1; qi > 0; qi--) {
-        var qj = Math.floor(Math.random() * (qi + 1));
-        var qt = queue[qi]; queue[qi] = queue[qj]; queue[qj] = qt;
+  /* 表紙の絵柄は index.html の <head> 内スクリプトが描画前に抽選し、
+     window.__coverVariant に入れてある（クラスも付与済み）。ここでは使うだけ。
+     万一入っていない場合のみ、従来どおりここで抽選する（抽選は常に1回だけ）。 */
+  var variant = window.__coverVariant;
+  if (variant !== 'a' && variant !== 'b' && variant !== 'c' && variant !== 'd' && variant !== 'rare') {
+    var COVER_QUEUE_KEY = 'minibas-scoresheet-cover-queue-v1';
+    if (Math.random() < 0.10) {
+      variant = 'rare';
+    } else {
+      var queue = [];
+      try {
+        var qRaw = JSON.parse(localStorage.getItem(COVER_QUEUE_KEY) || '[]');
+        if (Array.isArray(qRaw)) queue = qRaw.filter(function (v) { return v === 'a' || v === 'b' || v === 'c' || v === 'd'; });
+      } catch (e) { queue = []; }
+      if (!queue.length) {
+        queue = ['a', 'b', 'c', 'd'];
+        for (var qi = queue.length - 1; qi > 0; qi--) {
+          var qj = Math.floor(Math.random() * (qi + 1));
+          var qt = queue[qi]; queue[qi] = queue[qj]; queue[qj] = qt;
+        }
       }
+      variant = queue.shift();
+      try { localStorage.setItem(COVER_QUEUE_KEY, JSON.stringify(queue)); } catch (e) {}
     }
-    variant = queue.shift();
-    try { localStorage.setItem(COVER_QUEUE_KEY, JSON.stringify(queue)); } catch (e) {}
+    window.__coverVariant = variant;
   }
   cover.classList.add('cover-' + variant);
-  window.__coverVariant = variant;
   var done = false;
   function open() {
     if (done) return;

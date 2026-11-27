@@ -6,12 +6,54 @@
 <title>ミニバス スコアシート</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="sheet.css">
+<style>
+/* 表紙の絵柄ゲート：style.css の読込前に描画されることがあっても、
+   選ばれた絵柄以外は絶対に出さない（style.css 側の display 指定と同じ値） */
+.cover-art { display: none; }
+.cover-a .art-dunk { display: block; }
+.cover-b .art-ball { display: block; }
+.cover-c .art-court { display: block; }
+.cover-d .art-ball-d { display: block; }
+.cover-rare .art-tiger { display: block; }
+</style>
+<script>
+/* 起動時のバインダー表紙：絵柄の抽選はファーストペイント前にここで済ませる。
+   app.js の binderIntro は window.__coverVariant を使うだけで、抽選は二度しない。
+   絵柄: ダンク(a)／ボール(b)／コート(c)／ボール小(d) は「順番ローテーション」で
+   必ず一巡する（完全ランダムだと、たまたま同じ絵柄ばかり続くため）。
+   レア金(rare) だけは毎回10%の抽選で割り込む。 */
+(function () {
+  var COVER_QUEUE_KEY = 'minibas-scoresheet-cover-queue-v1';
+  var variant;
+  if (Math.random() < 0.10) {
+    variant = 'rare';
+  } else {
+    var queue = [];
+    try {
+      var qRaw = JSON.parse(localStorage.getItem(COVER_QUEUE_KEY) || '[]');
+      if (Array.isArray(qRaw)) queue = qRaw.filter(function (v) { return v === 'a' || v === 'b' || v === 'c' || v === 'd'; });
+    } catch (e) { queue = []; }
+    if (!queue.length) {
+      queue = ['a', 'b', 'c', 'd'];
+      for (var qi = queue.length - 1; qi > 0; qi--) {
+        var qj = Math.floor(Math.random() * (qi + 1));
+        var qt = queue[qi]; queue[qi] = queue[qj]; queue[qj] = qt;
+      }
+    }
+    variant = queue.shift();
+    try { localStorage.setItem(COVER_QUEUE_KEY, JSON.stringify(queue)); } catch (e) {}
+  }
+  window.__coverVariant = variant;
+})();
+</script>
 </head>
 <body>
 
 <!-- 起動時のバインダー表紙（タップでも開く。app.js の binderIntro が外す）
-     表紙の絵柄は起動ごとにランダム（ダンク／ボール／コート／レア金） -->
+     表紙の絵柄は起動ごとにランダム（ダンク／ボール／コート／レア金）
+     抽選は head 内スクリプトで描画前に済み、下のスクリプトで即座に反映する -->
 <div id="binderCover">
+<script>if (window.__coverVariant) document.getElementById('binderCover').classList.add('cover-' + window.__coverVariant);</script>
   <div class="binder-wrap">
     <div class="ground-shadow"></div>
     <div class="binder">
@@ -79,7 +121,7 @@
   <img class="cover-art art-tiger" src="cover_tiger.svg" alt="">
   <div class="binder-main">
     <div class="binder-title">ミニバス<br>スコアシート</div>
-    <div class="binder-version" id="binderVersion">バージョン 1.51</div>
+    <div class="binder-version" id="binderVersion">バージョン 1.52</div>
     <div class="binder-credit">作：バスケおっさん</div>
   </div>
       </div>
