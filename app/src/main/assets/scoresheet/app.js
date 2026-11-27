@@ -9,6 +9,8 @@
    ============================================================ */
 'use strict';
 
+var APP_VERSION = '1.46';
+
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
 var ARCHIVE_KEY = 'minibas-scoresheet-archive-v1';
@@ -762,6 +764,12 @@ var FOUL_TYPES_PLAYER = ['P', 'P1', 'P2', 'P3', 'U', 'U1', 'U2', 'T', 'T1', 'D']
 var FOUL_TYPES_COACH = ['C', 'C1', 'C2', 'B', 'B1', 'B2', 'M', 'M1'];
 var FOUL_DESC_PLAYER = 'P＝パーソナル（通常のファウル）／U＝アンスポーツマンライク／T＝テクニカル／D＝ディスクォリファイイング（即退場）です。後ろの数字は、相手チームに与えるフリースローの本数です（数字なしはフリースローなし）。';
 var FOUL_DESC_COACH = 'C＝コーチ自身のテクニカルファウル／B＝ベンチメンバーのテクニカルファウル／M＝マンツーマンペナルティ（U12・U15のみ）です。後ろの数字は、相手チームに与えるフリースローの本数です（数字なしはフリースローなし）。';
+function setModalTeam(modalId, team) {
+  var box = document.querySelector('#' + modalId + ' .modal-box');
+  if (!box) return;
+  box.classList.toggle('team-a', team === 'A');
+  box.classList.toggle('team-b', team === 'B');
+}
 function openFoulModal() {
   var isCoach = typeof foulTarget.who === 'string';
   document.getElementById('foulModalTitle').textContent =
@@ -771,6 +779,7 @@ function openFoulModal() {
   document.getElementById('foulTypeBtns').innerHTML = types.map(function (ty) {
     return '<button type="button" data-type="' + ty + '">' + ty + '</button>';
   }).join('');
+  setModalTeam('foulModal', foulTarget.team);
   document.getElementById('foulModal').classList.remove('hidden');
 }
 document.getElementById('foulTypeBtns').addEventListener('click', function (e) {
@@ -823,6 +832,7 @@ function openToModal(team, fromVoice) {
     btns += '<button type="button" data-min="' + m + '">' + m + '分</button>';
   }
   document.getElementById('toMinuteBtns').innerHTML = btns;
+  setModalTeam('toModal', team);
   document.getElementById('toModal').classList.remove('hidden');
 }
 function closeToModal() {
@@ -942,7 +952,7 @@ function renderFix() {
   root.innerHTML = items.map(function (it) {
     var k = qKey(it.q);
     var cls = (k === '1' || k === '3') ? 'qred' : 'qblue';
-    return '<button type="button" class="fix-item" data-kind="' + it.kind + '" data-i="' + it.i +
+    return '<button type="button" class="fix-item fix-' + String(it.team).toLowerCase() + '" data-kind="' + it.kind + '" data-i="' + it.i +
       '" data-team="' + it.team + '" data-q="' + esc(it.q) + '" data-ai="' + it.ai + '">' +
       '<span class="fix-q ' + cls + '">' + qLabel(it.q) + '</span>' +
       '<span class="fix-text">' + esc(fixItemText(it)) + '</span>' +
@@ -1101,7 +1111,7 @@ document.getElementById('editDelete').addEventListener('click', function () {
 });
 document.getElementById('editCancel').addEventListener('click', closeEdit);
 
-/* ---------- 公式シート描画（canvas方式） ----------
+/* ---------- スコアシート描画（canvas方式） ----------
    JBA公式様式そのものの画像（form_image.js の base64）を全面に描き、
    その上に記録データを「ペイント」するように重ね描きする。
    座標は scoresheet-ref/OVERLAY_SPEC.md の実測値（基準キャンバス 2481x3509 px）。
@@ -1565,7 +1575,7 @@ function drawSheetCanvas() {
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-  /* タブレット幅では記録タブの横に公式シートを同時表示する（プレビュー用canvasへ複写） */
+  /* タブレット幅では記録タブの横にスコアシートを同時表示する（プレビュー用canvasへ複写） */
   var pv = document.getElementById('sheetPreview');
   if (pv) {
     var pctx = pv.getContext('2d');
@@ -1874,7 +1884,7 @@ document.getElementById('tab-sheet').addEventListener('click', function (e) {
   else if (act === 'sharePdf') shareSheetPdf();
 });
 
-/* 公式シートプレビューの拡大・縮小（スマホでは全体表示だと文字が読めないため。
+/* スコアシートプレビューの拡大・縮小（スマホでは全体表示だと文字が読めないため。
    表示だけの拡大で、保存される画像・PDFには影響しない）
    「全体を表示」は、シート全体が枠（.sheet-scroll）の中に一度に収まる大きさにする */
 var sheetZoom = 1;
@@ -2871,6 +2881,8 @@ window.onOcrError = function (code) {
 (function binderIntro() {
   var cover = document.getElementById('binderCover');
   if (!cover) return;
+  var bv = document.getElementById('binderVersion');
+  if (bv) bv.textContent = 'バージョン ' + APP_VERSION;
   /* 表紙の絵柄: ダンク(a)／ボール(b)／コート(c) は「順番ローテーション」で
      必ず一巡する（完全ランダムだと、たまたま同じ絵柄ばかり続くため）。
      レア金(rare) だけは毎回10%の抽選で割り込む。 */

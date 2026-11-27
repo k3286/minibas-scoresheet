@@ -20,13 +20,16 @@
   </div>
   <img class="cover-art art-dunk" src="cover_dunk.svg" alt="">
   <svg class="cover-art art-ball" viewBox="0 0 200 200" aria-hidden="true">
+    <defs><clipPath id="clipBallA"><circle cx="100" cy="100" r="96"/></clipPath></defs>
     <circle cx="100" cy="100" r="96" class="ball-body"/>
-    <path d="M4 100 H196" class="ball-seam"/>
-    <path d="M100 4 V196" class="ball-seam"/>
-    <path d="M16 40 Q100 98 184 40" class="ball-seam"/>
-    <path d="M16 160 Q100 102 184 160" class="ball-seam"/>
-    <path d="M40 16 Q98 100 40 184" class="ball-seam"/>
-    <path d="M160 16 Q102 100 160 184" class="ball-seam"/>
+    <g clip-path="url(#clipBallA)">
+      <path d="M4 100 H196" class="ball-seam"/>
+      <path d="M100 4 V196" class="ball-seam"/>
+      <path d="M16 40 Q100 98 184 40" class="ball-seam"/>
+      <path d="M16 160 Q100 102 184 160" class="ball-seam"/>
+      <path d="M40 16 Q98 100 40 184" class="ball-seam"/>
+      <path d="M160 16 Q102 100 160 184" class="ball-seam"/>
+    </g>
   </svg>
   <svg class="cover-art art-court" viewBox="0 0 300 320" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
     <g stroke="none">
@@ -49,19 +52,22 @@
     </g>
   </svg>
   <svg class="cover-art art-ball-d" viewBox="0 0 200 200" aria-hidden="true">
+    <defs><clipPath id="clipBallD"><circle cx="100" cy="98" r="94"/></clipPath></defs>
     <ellipse cx="100" cy="188" rx="72" ry="9" fill="rgba(0,0,0,.45)"/>
     <circle cx="100" cy="98" r="94" class="ball-body"/>
-    <path d="M6 98 H194" class="ball-seam"/>
-    <path d="M100 4 V192" class="ball-seam"/>
-    <path d="M15 38 Q100 96 185 38" class="ball-seam"/>
-    <path d="M15 158 Q100 100 185 158" class="ball-seam"/>
-    <path d="M38 15 Q96 98 38 181" class="ball-seam"/>
-    <path d="M162 15 Q104 98 162 181" class="ball-seam"/>
+    <g clip-path="url(#clipBallD)">
+      <path d="M6 98 H194" class="ball-seam"/>
+      <path d="M100 4 V192" class="ball-seam"/>
+      <path d="M15 38 Q100 96 185 38" class="ball-seam"/>
+      <path d="M15 158 Q100 100 185 158" class="ball-seam"/>
+      <path d="M38 15 Q96 98 38 181" class="ball-seam"/>
+      <path d="M162 15 Q104 98 162 181" class="ball-seam"/>
+    </g>
   </svg>
   <img class="cover-art art-tiger" src="cover_tiger.svg" alt="">
   <div class="binder-main">
     <div class="binder-title">ミニバス<br>スコアシート</div>
-    <div class="binder-version">バージョン 1.41</div>
+    <div class="binder-version" id="binderVersion">バージョン 1.46</div>
     <div class="binder-credit">作：バスケおっさん</div>
   </div>
 </div>
@@ -78,7 +84,7 @@
   <button type="button" data-tab="roster">選手登録</button>
   <button type="button" data-tab="record">記録</button>
   <button type="button" data-tab="fix">修正</button>
-  <button type="button" data-tab="sheet">公式シート</button>
+  <button type="button" data-tab="sheet">スコアシート</button>
 </nav>
 
 <div id="voiceStatus" class="voice-status noprint" role="status"></div>
@@ -142,7 +148,7 @@
       <label class="check"><input type="checkbox" id="chkKeepScreenOn"> 試合中は画面を消さない（スリープ防止）</label>
     </div>
     <h2>背景のカスタマイズ</h2>
-    <p class="hint">変えるのは、画面いちばん後ろの背景だけです。公式シートの様式や、白いカードの部分は変わらないので、記録が見にくくなることはありません。写真を選んだ場合は、白をうっすら重ねて文字を読みやすくします。</p>
+    <p class="hint">変えるのは、画面いちばん後ろの背景だけです。スコアシートや、白いカードの部分は変わらないので、記録が見にくくなることはありません。写真を選んだ場合は、白をうっすら重ねて文字を読みやすくします。</p>
     <div class="bg-swatches" id="bgSwatches">
       <button type="button" class="bg-swatch" data-bg="default" style="background:#f4f6f8">デフォルト</button>
       <button type="button" class="bg-swatch" data-bg="#ffffff" style="background:#ffffff">白</button>
@@ -204,7 +210,7 @@
     </div>
     <div id="recordPanels"></div>
     <div id="recordSheetSide">
-      <h3 class="side-title">公式シート（入力に合わせて自動で反映）</h3>
+      <h3 class="side-title">スコアシート（入力に合わせて自動で反映）</h3>
       <canvas id="sheetPreview" width="2481" height="3509"></canvas>
     </div>
   </section>
@@ -212,11 +218,11 @@
   <!-- ===== 記録の修正 ===== -->
   <section id="tab-fix" class="tabpage">
     <h2>記録の修正</h2>
-    <p class="hint">これまでの記録の一覧です。行をタップすると、その記録をその場で直接修正できます（選手・点数・ファウルの種別・クォーターの変更と、1件だけの削除）。直すと合計と公式シートにも反映されます。</p>
+    <p class="hint">これまでの記録の一覧です。行をタップすると、その記録をその場で直接修正できます（選手・点数・ファウルの種別・クォーターの変更と、1件だけの削除）。直すと合計とスコアシートにも反映されます。</p>
     <div id="fixList"></div>
   </section>
 
-  <!-- ===== 公式シート ===== -->
+  <!-- ===== スコアシート ===== -->
   <section id="tab-sheet" class="tabpage">
     <p class="hint">JBA公式様式の画像の上に、記録した内容をそのまま描いたシートです。保存・共有のボタンはシートの下にあります。</p>
     <div class="sheet-zoom noprint">
