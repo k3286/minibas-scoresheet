@@ -91,11 +91,12 @@ table.record td.pname { text-align: left; }
 table.record .pno { font-weight: bold; }
 table.record button {
   border: none; border-radius: 6px; padding: 8px 9px; font-size: 13px; font-weight: bold;
-  background: #e3f2fd; color: #1565c0;
+  background: #e3f2fd; color: #1565c0; white-space: nowrap;
 }
-table.record button.pts { background: #e65100; color: #fff; min-width: 40px; }
-table.record button.foul { background: #fff; color: #c62828; border: 2px solid #c62828; min-width: 48px; padding: 12px 10px; font-size: 15px; }
-table.record button.play { background: #f1f8e9; color: #33691e; border: 1px solid #aed581; min-width: 44px; }
+table.record td:nth-child(3) { white-space: nowrap; }
+table.record button.pts { background: #e65100; color: #fff; min-width: 34px; padding: 8px 5px; }
+table.record button.foul { background: #fff; color: #c62828; border: 2px solid #c62828; min-width: 44px; padding: 12px 7px; font-size: 15px; }
+table.record button.play { background: #f1f8e9; color: #33691e; border: 1px solid #aed581; min-width: 56px; padding: 8px 6px; }
 table.record button.play.on { background: #33691e; color: #fff; }
 table.record .foulcount { color: #c62828; font-size: 12px; }
 table.record tr.out { opacity: .45; }
