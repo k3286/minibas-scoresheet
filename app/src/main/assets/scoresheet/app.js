@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-var APP_VERSION = '1.57';
+var APP_VERSION = '1.58';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';

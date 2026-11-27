@@ -23,6 +23,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Base64
+import android.view.View
 import android.view.WindowManager
 import android.app.AlertDialog
 import android.webkit.JavascriptInterface
@@ -66,6 +67,26 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webView)
+        // targetSdk 35 以降はエッジツーエッジが強制され、WebView がステータスバーや
+        // ナビゲーションバーの下まで描画されてしまう。API 36 ではエッジツーエッジの
+        // オプトアウト属性（windowOptOutEdgeToEdgeEnforcement）が使えないため、
+        // システムバーのインセットをルートビュー（FrameLayout）のパディングとして
+        // 適用し、UI がバーの下に潜らないようにする。エッジツーエッジでない環境では
+        // DecorView がインセットを消費するためパディングは 0 になり、従来どおり動く。
+        val rootView = webView.parent as? View
+        if (rootView != null) {
+            rootView.setOnApplyWindowInsetsListener { v, insets ->
+                @Suppress("DEPRECATION")
+                v.setPadding(
+                    insets.systemWindowInsetLeft,
+                    insets.systemWindowInsetTop,
+                    insets.systemWindowInsetRight,
+                    insets.systemWindowInsetBottom
+                )
+                insets
+            }
+            rootView.requestApplyInsets()
+        }
         webView.webViewClient = WebViewClient()
         // JavaScript の confirm()/alert() を Android のダイアログで表示する。
         // これが無いと WebView では confirm() が常に false を返してしまい、
