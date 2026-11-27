@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-var APP_VERSION = '1.54';
+var APP_VERSION = '1.55';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
@@ -2542,6 +2542,21 @@ function handleVoiceCommand(rawText) {
     var si = findPlayerIdxByNo(voiceTeam, Number(m[1]));
     if (si < 0) { voiceStatus(heard + m[1] + '番の選手が登録されていません'); return; }
     if (addScore(voiceTeam, si, 1)) voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番にフリースローで1点を追加しました');
+    else voiceStatus(heard + '記録しませんでした');
+    return;
+  }
+  /* 得点（カタカナ・ひらがなの言い方）：「4番 スリー」→3点、「4番 ツー」→2点。
+     音声認識がひらがなで返す場合（すりー／つー）も同じに扱う */
+  m = s.match(/(\d+)番.*(スリー|すりー|ツー|つー)/);
+  if (m) {
+    var kpts = (m[2] === 'スリー' || m[2] === 'すりー') ? 3 : 2;
+    if (kpts === 3 && !S.game.use3pt) {
+      voiceStatus(heard + '3ポイントは採用されていません（試合情報タブで有効にしてください）');
+      return;
+    }
+    var ki = findPlayerIdxByNo(voiceTeam, Number(m[1]));
+    if (ki < 0) { voiceStatus(heard + m[1] + '番の選手が登録されていません'); return; }
+    if (addScore(voiceTeam, ki, kpts)) voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番に' + kpts + '点を追加しました');
     else voiceStatus(heard + '記録しませんでした');
     return;
   }
