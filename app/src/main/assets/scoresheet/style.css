@@ -206,6 +206,16 @@ button.practice-open {
        140px は張り付き位置（100px）＋見出し＋下の余白の分 */
     max-height: calc(100vh - 140px); object-fit: contain;
   }
+  /* 左列の記録テーブル：見出しとボタンを単語の途中で折り返さない。
+     スマホ幅のレイアウトには影響しないよう、このメディアクエリ内だけに絞る */
+  #recordPanels table.record th { white-space: nowrap; font-size: 12px; padding: 5px 2px; }
+  #recordPanels table.record td { padding: 5px 2px; }
+  #recordPanels table.record button { white-space: nowrap; }
+  #recordPanels table.record button.play { min-width: 38px; padding: 8px 4px; font-size: 12px; }
+  #recordPanels table.record button.pts { min-width: 32px; padding: 8px 4px; font-size: 12px; }
+  #recordPanels table.record button.foul { min-width: 40px; padding: 12px 5px; font-size: 14px; }
+  /* 得点ボタン（+1/+2/+3）は2段に落とさず1行に並べる */
+  #recordPanels table.record td:nth-child(3) { white-space: nowrap; }
 }
 
 /* 音声入力 */
@@ -372,45 +382,134 @@ button.practice-open {
 .bg-slider { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 14px; }
 .bg-slider input[type="range"] { flex: 1; }
 
-/* 起動時のバインダー表紙（絵柄は起動ごとにランダム） */
+/* 起動時のバインダー表紙（絵柄は起動ごとにランダム）
+   実物のバインダーらしく、机の上に置いたバインダーを
+   紙の束・裏表紙・金属リング・革の質感で立体的に見せる */
 #binderCover {
-  position: fixed; inset: 0; z-index: 9999; display: flex;
-  background: linear-gradient(150deg, #1d1d22, #101014 55%, #17171c);
-  transform-origin: left center;
-  transition: transform .7s ease-in, opacity .7s ease-in;
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(130% 80% at 50% 22%, #434956, #262a33 58%, #16181e 100%);
+  transition: opacity .7s ease-in;
   overflow: hidden;
 }
-#binderCover.opening {
-  transform: perspective(1200px) rotateY(-102deg);
-  opacity: 0;
+#binderCover.opening { opacity: 0; }
+.binder-wrap {
+  position: relative;
+  width: min(94vw, 560px); height: min(88vh, 780px);
+  perspective: 1200px;
 }
-#binderCover.cover-c { background: linear-gradient(135deg, #262861, #1a1c53 60%, #141539); }
-#binderCover.cover-rare {
+/* 床に落ちる柔らかい影 */
+.ground-shadow {
+  position: absolute; left: 2%; right: -9%; bottom: -30px; height: 52px;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,.62), rgba(0,0,0,0) 68%);
+  filter: blur(7px);
+}
+.binder {
+  position: absolute; inset: 0;
+  transform: rotateY(-5deg) rotateX(1.2deg);
+  transform-style: preserve-3d;
+  transform-origin: left center;
+  transition: transform .7s ease-in;
+}
+#binderCover.opening .binder {
+  transform: perspective(1200px) rotateY(-102deg);
+}
+/* 裏表紙の板（いちばん後ろ） */
+.backboard {
+  position: absolute; inset: 0;
+  transform: translate(13px, 10px);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #26264e, #101024 70%);
+  box-shadow: 3px 3px 4px rgba(0,0,0,.45);
+}
+#binderCover.cover-rare .backboard {
+  background: linear-gradient(135deg, #7a5f16, #42330a 70%);
+}
+/* 紙の束（小口）：横の縞で1枚ずつの層を表す */
+.pages {
+  position: absolute; inset: 0;
+  transform: translate(8px, 6px);
+  border-radius: 10px;
+  background: repeating-linear-gradient(0deg,
+    #f8f4e9 0px, #f8f4e9 2px, #c9c1ab 3px, #ece6d5 4px);
+  box-shadow: inset -3px 0 3px rgba(0,0,0,.18), inset 0 -3px 3px rgba(0,0,0,.12);
+}
+/* 表紙本体 */
+.binder-face {
+  position: absolute; inset: 0; display: flex;
+  border-radius: 10px; overflow: hidden;
+  background: linear-gradient(150deg, #1d1d22, #101014 55%, #17171c);
+  box-shadow:
+    inset 0 0 0 2px rgba(0,0,0,.55),
+    inset 0 0 0 3px rgba(255,255,255,.05),
+    inset 0 2px 3px rgba(255,255,255,.10),
+    -2px 2px 6px rgba(0,0,0,.35);
+}
+/* 革の質感（SVGノイズ）＋斜めのツヤ */
+.binder-face::before {
+  content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background:
+    linear-gradient(112deg, rgba(255,255,255,.13) 0%, rgba(255,255,255,.03) 30%, transparent 48%),
+    radial-gradient(95% 55% at 16% 0%, rgba(255,255,255,.10), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+#binderCover.cover-c .binder-face { background: linear-gradient(135deg, #262861, #1a1c53 60%, #141539); }
+#binderCover.cover-rare .binder-face {
   background-color: #d4af37;
   background-image:
     repeating-linear-gradient(90deg, rgba(120,84,10,.18) 0 2px, transparent 2px 16.66%),
     linear-gradient(140deg, #f3d27a, #d4af37 45%, #a87f1f 82%, #caa437);
 }
+/* 背表紙：丸みのあるグラデーション＋ヒンジの溝 */
 .binder-spine {
-  width: 54px; flex: none; position: relative; z-index: 3;
-  background: linear-gradient(90deg, rgba(0,0,0,.38), rgba(0,0,0,.18) 70%, rgba(255,255,255,.07));
-  border-right: 2px solid rgba(255,255,255,.16);
+  width: 58px; flex: none; position: relative; z-index: 3;
+  background: linear-gradient(90deg,
+    #060608 0%, #1b1b21 26%, #3a3a44 48%, #23232b 72%, #0a0a0d 100%);
+  border-right: 2px solid rgba(0,0,0,.65);
+  box-shadow: inset -4px 0 5px rgba(0,0,0,.55), inset 3px 0 4px rgba(0,0,0,.5);
   display: flex; flex-direction: column;
   justify-content: space-evenly; align-items: center;
 }
 .cover-rare .binder-spine {
-  background: linear-gradient(90deg, rgba(90,64,0,.35), rgba(90,64,0,.16) 70%, rgba(255,255,255,.20));
-  border-right-color: rgba(90,64,0,.35);
+  background: linear-gradient(90deg,
+    #4a3806 0%, #8a6a1c 26%, #c9a227 48%, #7c5f14 72%, #3d2d04 100%);
+  border-right-color: rgba(58,42,0,.6);
 }
+/* 金属リング：金属グラデーションの輪＋中心の穴 */
 .binder-ring {
-  width: 26px; height: 26px; border-radius: 50%;
-  border: 6px solid #ccd2da; background: rgba(0,0,0,.35);
-  box-shadow: 0 2px 4px rgba(0,0,0,.5), inset 0 1px 2px rgba(0,0,0,.6);
+  width: 30px; height: 30px; border-radius: 50%;
+  position: relative;
+  background: radial-gradient(circle at 32% 28%,
+    #fdfefe, #c6cdd5 38%, #7e868f 62%, #4b5157 82%, #9aa3ab);
+  box-shadow: 0 3px 5px rgba(0,0,0,.6), inset 0 0 3px rgba(0,0,0,.45);
+}
+.binder-ring::after {
+  content: ''; position: absolute; inset: 7px; border-radius: 50%;
+  background: radial-gradient(circle at 42% 34%, #2e2e34, #0e0e11 72%);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.95), 0 1px 0 rgba(255,255,255,.18);
+}
+.cover-rare .binder-ring {
+  background: radial-gradient(circle at 32% 28%,
+    #fffbe8, #ecd27a 38%, #b08d2a 62%, #6e5410 82%, #d9b84a);
+}
+.cover-rare .binder-ring::after {
+  background: radial-gradient(circle at 42% 34%, #4a3806, #241a02 72%);
+}
+/* 紙側のパンチ穴（リングの付け根） */
+.binder-holes {
+  position: absolute; left: 66px; top: 0; bottom: 0; z-index: 3;
+  display: flex; flex-direction: column;
+  justify-content: space-evenly; align-items: center;
+}
+.binder-hole {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: radial-gradient(circle at 42% 34%, #000, #1d1d22 76%);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.95), 0 1px 0 rgba(255,255,255,.10);
 }
 .cover-art { display: none; position: absolute; }
 .cover-a .art-dunk {
   display: block;
-  height: 38%; width: auto; top: 12%; left: 56%; transform: translateX(-50%);
+  height: 23%; width: auto; top: 12%; left: 56%; transform: translateX(-50%);
 }
 .cover-b .art-ball {
   display: block; width: 300px; height: 300px; right: -120px; bottom: -120px;
@@ -442,11 +541,30 @@ button.practice-open {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: 24px;
 }
+/* 型押し風の額縁 */
+.binder-main::before {
+  content: ''; position: absolute; inset: 15px; border-radius: 7px;
+  border: 1px solid rgba(0,0,0,.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 1px 0 rgba(255,255,255,.05);
+  pointer-events: none;
+}
 .cover-a .binder-main { justify-content: flex-end; padding-bottom: 17vh; }
 .cover-rare .binder-main { color: #43330a; }
-.binder-title { font-size: 34px; font-weight: bold; letter-spacing: 3px; line-height: 1.45; }
-.binder-version { margin-top: 20px; font-size: 16px; opacity: .85; }
+/* エンボス（型押し）タイトル */
+.binder-title {
+  font-size: 34px; font-weight: bold; letter-spacing: 3px; line-height: 1.45;
+  text-shadow:
+    0 2px 2px rgba(0,0,0,.7),
+    0 -1px 0 rgba(255,255,255,.16),
+    0 0 20px rgba(0,0,0,.3);
+}
+.cover-rare .binder-title {
+  text-shadow: 0 1px 0 rgba(255,246,200,.5), 0 -1px 1px rgba(90,64,0,.55);
+}
+.binder-version { margin-top: 20px; font-size: 16px; opacity: .85; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.cover-rare .binder-version { text-shadow: none; }
 .binder-credit {
   position: absolute; left: 0; right: 0; bottom: 36px;
-  font-size: 15px; opacity: .92;
+  font-size: 15px; opacity: .92; text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  white-space: nowrap;
 }
