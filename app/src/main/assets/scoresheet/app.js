@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-var APP_VERSION = '1.47';
+var APP_VERSION = '1.51';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
@@ -631,11 +631,11 @@ function teamFoulCount(t, q) {
 function updateTfBar() {
   var el = document.getElementById('tfBar');
   if (!el) return;
-  var qLabel = S.quarter === 'OT' ? '延長' : ('Q' + S.quarter);
+  var qText = S.quarter === 'OT' ? '延長' : ('Q' + S.quarter);
   el.innerHTML = ['A', 'B'].map(function (t) {
     var name = S.teams[t].name || ('チーム' + t);
     return '<span class="tf-chip"><span class="tf-team">' + esc(name) + '</span>' +
-      '<span class="tf-label">' + qLabel + ' チームファウル</span>' +
+      '<span class="tf-label">' + qText + ' チームファウル</span>' +
       '<span class="tf-num">' + teamFoulCount(t, S.quarter) + '</span></span>';
   }).join('');
 }
@@ -654,6 +654,7 @@ function renderRecord() {
       return '<span class="chip">' + q + ' ' + m + '分<b data-act="delto" data-team="' + t + '" data-i="' + i + '">×</b></span>';
     }).join('');
     var registered = registeredList(t);
+    var partStatus = participationStatusText(t);
     var rows;
     if (registered.length === 0) {
       rows = '<p class="hint">「選手登録」タブで選手を登録してください。</p>';
@@ -688,7 +689,7 @@ function renderRecord() {
       '<button type="button" data-act="foul" data-team="' + t + '" data-who="acoach">AコーチF</button>' +
       '</span></header>' +
       '<div class="to-chips">' + (chips ? 'TO（' + q + '）: ' + chips : '') + '</div>' +
-      (participationStatusText(t) ? '<div class="part-status">' + esc(participationStatusText(t)) + '</div>' : '') +
+      (partStatus ? '<div class="part-status">' + esc(partStatus) + '</div>' : '') +
       rows + '</div>';
   }).join('');
   applyRecordTeam();
@@ -1680,13 +1681,8 @@ function saveSheetImage() {
         try { download(canvas.toDataURL('image/png')); } catch (e) { doPrint(); }
         return;
       }
-      if (androidSaveAvailable()) {
-        saveBlobAsFile(blob, 'scoresheet.png', 'image/png', doPrint);
-        return;
-      }
-      var url = URL.createObjectURL(blob);
-      download(url);
-      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      /* ブリッジ保存・ダウンロードの振り分けは saveBlobAsFile が担う */
+      saveBlobAsFile(blob, 'scoresheet.png', 'image/png', doPrint);
     }, 'image/png');
   } else {
     try { download(canvas.toDataURL('image/png')); } catch (e) { doPrint(); }
@@ -1750,19 +1746,10 @@ function buildSheetPdf(jpegBytes, imgW, imgH) {
   return out;
 }
 
-function saveSheetPdf() {
-  drawSheetCanvas();
-  var canvas = document.getElementById('sheetCanvas');
-  if (!canvas) return;
-  var fileName = sheetPdfFileName();
-  function handleJpegBytes(bytes) {
-    if (!bytes) { alert('PDFの作成に失敗しました。'); return; }
-    var pdf = buildSheetPdf(bytes, canvas.width, canvas.height);
-    var blob = new Blob([pdf], { type: 'application/pdf' });
-    saveBlobAsFile(blob, fileName, 'application/pdf', function () {
-      alert('PDFの保存に失敗しました。');
-    });
-  }
+/* シート canvas の JPEG バイト列を取り出して cb(bytes) に渡す共通処理
+   （PDF保存とPDF共有で共用）。取得できなければ cb(null)。
+   toBlob → arrayBuffer / FileReader の順に試し、だめなら toDataURL 経由。 */
+function sheetJpegBytes(canvas, cb) {
   function fallbackDataUrl() {
     try {
       var url = canvas.toDataURL('image/jpeg', 0.92);
@@ -1770,9 +1757,9 @@ function saveSheetPdf() {
       var bin = atob(b64);
       var bytes = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      handleJpegBytes(bytes);
+      cb(bytes);
     } catch (e) {
-      alert('PDFの作成に失敗しました。');
+      cb(null);
     }
   }
   if (typeof canvas.toBlob === 'function') {
@@ -1780,11 +1767,11 @@ function saveSheetPdf() {
       if (!blob) { fallbackDataUrl(); return; }
       if (typeof blob.arrayBuffer === 'function') {
         blob.arrayBuffer().then(function (buf) {
-          handleJpegBytes(new Uint8Array(buf));
+          cb(new Uint8Array(buf));
         }, fallbackDataUrl);
       } else {
         var r = new FileReader();
-        r.onload = function () { handleJpegBytes(new Uint8Array(r.result)); };
+        r.onload = function () { cb(new Uint8Array(r.result)); };
         r.onerror = fallbackDataUrl;
         r.readAsArrayBuffer(blob);
       }
@@ -1792,6 +1779,21 @@ function saveSheetPdf() {
   } else {
     fallbackDataUrl();
   }
+}
+
+function saveSheetPdf() {
+  drawSheetCanvas();
+  var canvas = document.getElementById('sheetCanvas');
+  if (!canvas) return;
+  var fileName = sheetPdfFileName();
+  sheetJpegBytes(canvas, function (bytes) {
+    if (!bytes) { alert('PDFの作成に失敗しました。'); return; }
+    var pdf = buildSheetPdf(bytes, canvas.width, canvas.height);
+    var blob = new Blob([pdf], { type: 'application/pdf' });
+    saveBlobAsFile(blob, fileName, 'application/pdf', function () {
+      alert('PDFの保存に失敗しました。');
+    });
+  });
 }
 /* 保存・共有ボタンの配線は、共有セクション末尾の委譲ハンドラに一本化
    （シート下部にも同じボタンを置くため、data-act で振り分ける） */
@@ -1825,40 +1827,11 @@ function shareSheetPdf() {
   var canvas = document.getElementById('sheetCanvas');
   if (!canvas) return;
   var fileName = sheetPdfFileName();
-  function handleJpegBytes(bytes) {
+  sheetJpegBytes(canvas, function (bytes) {
     if (!bytes) { alert('PDFの作成に失敗しました。'); return; }
     var pdf = buildSheetPdf(bytes, canvas.width, canvas.height);
     shareBlobAsFile(new Blob([pdf], { type: 'application/pdf' }), fileName, 'application/pdf');
-  }
-  function fallbackDataUrl() {
-    try {
-      var url = canvas.toDataURL('image/jpeg', 0.92);
-      var b64 = url.slice(url.indexOf(',') + 1);
-      var bin = atob(b64);
-      var bytes = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      handleJpegBytes(bytes);
-    } catch (e) {
-      alert('PDFの作成に失敗しました。');
-    }
-  }
-  if (typeof canvas.toBlob === 'function') {
-    canvas.toBlob(function (blob) {
-      if (!blob) { fallbackDataUrl(); return; }
-      if (typeof blob.arrayBuffer === 'function') {
-        blob.arrayBuffer().then(function (buf) {
-          handleJpegBytes(new Uint8Array(buf));
-        }, fallbackDataUrl);
-      } else {
-        var r = new FileReader();
-        r.onload = function () { handleJpegBytes(new Uint8Array(r.result)); };
-        r.onerror = fallbackDataUrl;
-        r.readAsArrayBuffer(blob);
-      }
-    }, 'image/jpeg', 0.92);
-  } else {
-    fallbackDataUrl();
-  }
+  });
 }
 function shareSheetImage() {
   drawSheetCanvas();
