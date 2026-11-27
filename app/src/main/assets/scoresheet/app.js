@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-var APP_VERSION = '1.52';
+var APP_VERSION = '1.53';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
@@ -1929,7 +1929,7 @@ function practicePlayers(t) {
 }
 function practiceSeed() {
   var s = {
-    game: { tournament: 'れんしゅうカップ', date: '', time: '', venue: 'みどり小学校', gameNo: '', endTime: '', crewChief: '', umpire: '', scorer: '', timer: '', aScorer: '', shotClock: '', use3pt: false, finished: false },
+    game: { tournament: '練習カップ', date: '', time: '', venue: 'みどり小学校', gameNo: '', endTime: '', crewChief: '', umpire: '', scorer: '', timer: '', aScorer: '', shotClock: '', use3pt: false, finished: false },
     teams: {
       A: { name: 'さくらミニバス', color: '白', coach: { name: '佐々木 健', license: '047' }, acoach: { name: '中村 翔', license: '059' }, players: practicePlayers('A') },
       B: { name: 'ひまわりミニバス', color: '青', coach: { name: '高田 修', license: '078' }, acoach: { name: '青木 翔', license: '082' }, players: practicePlayers('B') }
