@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-var APP_VERSION = '1.59';
+var APP_VERSION = '1.60';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
@@ -1266,7 +1266,7 @@ function drawLicense(ctx, license, centersX, cy) {
   var s = trimStr(license);
   if (!s) return;
   var digits = ('000' + s).slice(-3);
-  for (var k = 0; k < 3; k++) textC(ctx, centersX[k], cy, digits.charAt(k), 30, COL_BLACK);
+  for (var k = 0; k < 3; k++) textC(ctx, centersX[k], cy, digits.charAt(k), 30, COL_BLACK, true);
 }
 
 function drawSheetCanvas() {
@@ -1294,20 +1294,20 @@ function drawSheetCanvas() {
   if (game.date) {
     var dp = String(game.date).split('-');
     if (dp.length === 3) {
-      textR(ctx, 1575, 254, String(Number(dp[0])), 38, COL_BLACK);
-      textR(ctx, 1692, 254, String(Number(dp[1])), 38, COL_BLACK);
-      textR(ctx, 1811, 254, String(Number(dp[2])), 38, COL_BLACK);
+      textR(ctx, 1575, 254, String(Number(dp[0])), 38, COL_BLACK, true);
+      textR(ctx, 1692, 254, String(Number(dp[1])), 38, COL_BLACK, true);
+      textR(ctx, 1811, 254, String(Number(dp[2])), 38, COL_BLACK, true);
     }
   }
   if (game.time) {
     var tp = String(game.time).split(':');
     if (tp.length >= 2) {
-      textR(ctx, 2235, 254, tp[0], 38, COL_BLACK);
-      textL(ctx, 2271, 254, tp[1], 38, COL_BLACK);
+      textR(ctx, 2235, 254, tp[0], 38, COL_BLACK, true);
+      textL(ctx, 2271, 254, tp[1], 38, COL_BLACK, true);
     }
   }
   if (game.venue) {
-    textL(ctx, 1420, 320, game.venue, fitSize(ctx, game.venue, 38, 520, false), COL_BLACK);
+    textL(ctx, 1420, 320, game.venue, fitSize(ctx, game.venue, 38, 520, true), COL_BLACK, true);
   }
   if (game.gameNo) {
     textC(ctx, 2252, 320, game.gameNo, 44, COL_BLACK, true);
@@ -1318,7 +1318,7 @@ function drawSheetCanvas() {
     [game.aScorer, 1548, 622], [game.shotClock, 2124, 622]
   ];
   officials.forEach(function (o) {
-    if (o[0]) textC(ctx, o[1], o[2], o[0], fitSize(ctx, o[0], 40, 480, false), COL_BLACK);
+    if (o[0]) textC(ctx, o[1], o[2], o[0], fitSize(ctx, o[0], 40, 480, true), COL_BLACK, true);
   });
 
   /* ---------- スコア（ヘッダー部） ---------- */
@@ -1363,7 +1363,7 @@ function drawSheetCanvas() {
       if (col === undefined) return;
       var arrT = tos[qq0] || [];
       if (!arrT.length) return;
-      textC(ctx, toCols[col], headCY[tt] + 38, String(arrT[0]), 40, qColorCanvas(qq0), true);
+      textC(ctx, toCols[col], headCY[tt] + 42, String(arrT[0]), 40, qColorCanvas(qq0), true);
     });
     /* 選手別ファウル（時系列順） */
     var pfouls = foulsByWho(tt);
@@ -1373,7 +1373,7 @@ function drawSheetCanvas() {
       var cy = top + 29;
       drawLicense(ctx, p.license, licCX, cy);
       if (p.name) {
-        textL(ctx, 302, cy, p.name, fitSize(ctx, p.name, 34, 378, false), COL_BLACK);
+        textL(ctx, 302, cy, p.name, fitSize(ctx, p.name, 34, 378, true), COL_BLACK, true);
       }
       if (p.no) {
         textC(ctx, 718, cy, p.no, 38, COL_BLACK, true);
@@ -1404,7 +1404,7 @@ function drawSheetCanvas() {
       var cy2 = ct[1] + 29;
       drawLicense(ctx, person.license, [320, 377, 434], cy2);
       if (person.name) {
-        textL(ctx, 472, cy2, person.name, fitSize(ctx, person.name, 34, 208, false), COL_BLACK);
+        textL(ctx, 472, cy2, person.name, fitSize(ctx, person.name, 34, 208, true), COL_BLACK, true);
       }
       var cflist = (pfouls[ct[2]] || []).slice(0, 5);
       cflist.forEach(function (f, j) {
@@ -1475,7 +1475,7 @@ function drawSheetCanvas() {
       textC(ctx, sx + 32, cy, e.no, 28, col, true);
     }
     if (e.pts === 3 && game.use3pt) {
-      ellipseOutline(ctx, sx + 32, top + 29.5, 28, 25.5, col, 4);
+      ellipseOutline(ctx, sx + 32, top + 29.5, 26, 23.5, col, 4);
     }
     if (e.pts === 1) {
       ellipseFill(ctx, nx + 32, cy, 16, 16, col);
@@ -1485,11 +1485,11 @@ function drawSheetCanvas() {
     var isQEnd = lastOfQuarter[tt + '|' + qKey(e.q)] === idx;
     var isFinal = !!game.finished && lastEventIdx[tt] === idx;
     if (isQEnd || isFinal) {
-      ellipseOutline(ctx, nx + 32, top + 29.5, 30, 27.5, col, isFinal ? 8 : 5);
+      ellipseOutline(ctx, nx + 32, top + 29.5, isFinal ? 26 : 27, isFinal ? 23 : 24, col, isFinal ? 8 : 5);
       var xLo = Math.min(sx, nx), xHi = Math.max(sx, nx) + 64;
-      drawLine(ctx, xLo, top + 56, xHi, top + 56, col, 7);
+      drawLine(ctx, xLo, top + 52, xHi, top + 52, col, 6);
       if (isFinal) {
-        drawLine(ctx, xLo, top + 48, xHi, top + 48, col, 6);
+        drawLine(ctx, xLo, top + 43, xHi, top + 43, col, 5);
       }
     }
   });
@@ -1649,7 +1649,7 @@ function drawSheetCanvas() {
     }
   }
   if (game.endTime) {
-    textL(ctx, 1790, 3350, game.endTime, 42, COL_BLACK);
+    textL(ctx, 1790, 3350, game.endTime, 42, COL_BLACK, true);
   }
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
