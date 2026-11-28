@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-var APP_VERSION = '1.60';
+var APP_VERSION = '1.61';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
@@ -21,6 +21,26 @@ function isPractice() {
 }
 function storeKey() { return isPractice() ? PRACTICE_KEY : STORE_KEY; }
 function archiveKey() { return isPractice() ? PRACTICE_ARCHIVE_KEY : ARCHIVE_KEY; }
+
+/* ---------- localStorage の読み書き（共通ヘルパー） ----------
+   JSON 値の読み書きはここに集約する。読めない・壊れている場合は
+   fallback を返し、書き込みの失敗は黙って無視する（従来どおり）。
+   生文字列の読み書きが要る場所（モードや画面設定のキー）は
+   writeText / 直接の getItem を使う。 */
+function readJson(key, fallback) {
+  try {
+    var v = JSON.parse(localStorage.getItem(key));
+    return v == null ? fallback : v;
+  } catch (e) { return fallback; }
+}
+function writeJson(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+}
+function writeText(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) {}
+}
+/* 状態データ（JSON 化できるものだけ）のディープコピー */
+function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
 
 /* ---------- 状態 ---------- */
 function emptyPlayer() { return { no: '', name: '', license: '' }; }
@@ -81,9 +101,7 @@ function loadFrom(key) {
 }
 function load() { return loadFrom(storeKey()); }
 var S = load() || defaultState();
-function save() {
-  try { localStorage.setItem(storeKey(), JSON.stringify(S)); } catch (e) {}
-}
+function save() { writeJson(storeKey(), S); }
 function snapshot() {
   S.history.push(JSON.stringify({
     events: S.events, fouls: S.fouls,
@@ -313,17 +331,11 @@ document.getElementById('rosterEditors').addEventListener('click', function (e) 
    過去の試合の名簿からも呼び出せる。保存先は端末内（localStorage）のみ。 */
 var ROSTER_LIB_KEY = 'minibas-scoresheet-rosters-v1';
 function loadRosterLib() {
-  try {
-    var v = JSON.parse(localStorage.getItem(ROSTER_LIB_KEY) || '[]');
-    return Array.isArray(v) ? v : [];
-  } catch (e) { return []; }
+  var v = readJson(ROSTER_LIB_KEY, []);
+  return Array.isArray(v) ? v : [];
 }
-function writeRosterLib(lib) {
-  try { localStorage.setItem(ROSTER_LIB_KEY, JSON.stringify(lib)); } catch (e) {}
-}
-function copyTeam(team) {
-  return JSON.parse(JSON.stringify(team));
-}
+function writeRosterLib(lib) { writeJson(ROSTER_LIB_KEY, lib); }
+function copyTeam(team) { return deepCopy(team); }
 function saveRosterToLib(t) {
   var team = S.teams[t];
   var label = team.name || ('チーム' + t);
@@ -2050,7 +2062,7 @@ function stateHasPlayers(st) {
   });
 }
 function enterPractice() {
-  try { localStorage.setItem(MODE_KEY, 'practice'); } catch (e) {}
+  writeText(MODE_KEY, 'practice');
   var st = loadFrom(PRACTICE_KEY);
   /* 練習データが空（選手が一人もいない）ときは、見本の選手で入れ直す。
      「新しい試合」で空の状態が保存されてしまっても、入り直せば復活する */
@@ -2080,18 +2092,14 @@ function gameHasContent(s) {
   return !!(s.events.length || s.fouls.length || s.teams.A.name || s.teams.B.name || s.game.tournament);
 }
 function loadArchive() {
-  try {
-    var a = JSON.parse(localStorage.getItem(archiveKey()) || '[]');
-    return Array.isArray(a) ? a : [];
-  } catch (e) { return []; }
+  var a = readJson(archiveKey(), []);
+  return Array.isArray(a) ? a : [];
 }
-function saveArchive(a) {
-  try { localStorage.setItem(archiveKey(), JSON.stringify(a)); } catch (e) {}
-}
+function saveArchive(a) { writeJson(archiveKey(), a); }
 function archiveCurrent() {
   if (!gameHasContent(S)) return;
   var a = loadArchive();
-  a.unshift({ savedAt: new Date().toISOString(), state: JSON.parse(JSON.stringify(S)) });
+  a.unshift({ savedAt: new Date().toISOString(), state: deepCopy(S) });
   if (a.length > 20) a = a.slice(0, 20);
   saveArchive(a);
 }
@@ -2238,16 +2246,14 @@ document.getElementById('backupFileInput').addEventListener('change', function (
    ファイルへの書き出しと併用する想定。 */
 var AUTOBACKUP_KEY = 'minibas-scoresheet-autobackup-v1';
 function loadAutoBackups() {
-  try {
-    var v = JSON.parse(localStorage.getItem(AUTOBACKUP_KEY) || '[]');
-    return Array.isArray(v) ? v : [];
-  } catch (e) { return []; }
+  var v = readJson(AUTOBACKUP_KEY, []);
+  return Array.isArray(v) ? v : [];
 }
 function runAutoBackup() {
   var list = loadAutoBackups();
   list.unshift(buildBackupPayload());
   list = list.slice(0, 3);
-  try { localStorage.setItem(AUTOBACKUP_KEY, JSON.stringify(list)); } catch (e) {}
+  writeJson(AUTOBACKUP_KEY, list);
   renderAutoBackupInfo();
 }
 function renderAutoBackupInfo() {
@@ -2326,7 +2332,7 @@ var chkKeepScreenOnEl = document.getElementById('chkKeepScreenOn');
 if (chkKeepScreenOnEl) {
   chkKeepScreenOnEl.checked = keepScreenOnEnabled();
   chkKeepScreenOnEl.addEventListener('change', function () {
-    try { localStorage.setItem(SCREEN_KEY, chkKeepScreenOnEl.checked ? 'on' : 'off'); } catch (e) {}
+    writeText(SCREEN_KEY, chkKeepScreenOnEl.checked ? 'on' : 'off');
     applyKeepScreenOn();
   });
 }
@@ -2353,9 +2359,7 @@ try {
     }
   }
 } catch (e) {}
-function saveBgSetting() {
-  try { localStorage.setItem(BG_KEY, JSON.stringify(bgSetting)); } catch (e) {}
-}
+function saveBgSetting() { writeJson(BG_KEY, bgSetting); }
 function applyBg() {
   var b = document.body;
   if (!b) return;
@@ -2959,10 +2963,8 @@ window.onOcrError = function (code) {
       variant = 'rare';
     } else {
       var queue = [];
-      try {
-        var qRaw = JSON.parse(localStorage.getItem(COVER_QUEUE_KEY) || '[]');
-        if (Array.isArray(qRaw)) queue = qRaw.filter(function (v) { return v === 'a' || v === 'b' || v === 'c' || v === 'd'; });
-      } catch (e) { queue = []; }
+      var qRaw = readJson(COVER_QUEUE_KEY, []);
+      if (Array.isArray(qRaw)) queue = qRaw.filter(function (v) { return v === 'a' || v === 'b' || v === 'c' || v === 'd'; });
       if (!queue.length) {
         queue = ['a', 'b', 'c', 'd'];
         for (var qi = queue.length - 1; qi > 0; qi--) {
@@ -2971,7 +2973,7 @@ window.onOcrError = function (code) {
         }
       }
       variant = queue.shift();
-      try { localStorage.setItem(COVER_QUEUE_KEY, JSON.stringify(queue)); } catch (e) {}
+      writeJson(COVER_QUEUE_KEY, queue);
     }
     window.__coverVariant = variant;
   }
