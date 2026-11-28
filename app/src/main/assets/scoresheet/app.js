@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-var APP_VERSION = '1.61';
+var APP_VERSION = '1.62';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
@@ -2486,8 +2486,10 @@ var voiceToastTimer = null;
 function voiceStatus(msg) {
   var el = document.getElementById('voiceStatus');
   if (el) el.textContent = msg || '';
-  /* 記録が入った・チームが切り替わったときは、結果を大きく一瞬表示する（体育館でも見やすく） */
-  if (msg && (msg.indexOf('追加しました') >= 0 || msg.indexOf('切り替えました') >= 0)) {
+  /* 結果も失敗も大きく一瞬表示する（体育館でも見やすく）。
+     小さなステータス欄だけでは、記録できなかったときに気づけないため、
+     「解釈できませんでした」等の失敗も必ずトーストで見せる */
+  if (msg) {
     showVoiceToast(msg.replace(/^音声:『[^』]*』→ /, ''));
   }
 }
@@ -2554,6 +2556,11 @@ function normalizeVoiceText(text) {
     var n = kanjiNumberToInt(m);
     return n === null ? m : String(n);
   });
+  /* 音声認識が長音を「ウ／イ」で返す場合（ツウ・つう・スリイ等）を
+     「ー」表記にそろえる（この正規化は音声コマンド専用） */
+  s = s.replace(/(ツ|つ)[ウゥうぅ]/g, '$1ー');
+  s = s.replace(/スリ[イィいぃ]/g, 'スリー');
+  s = s.replace(/すり[イィいぃ]/g, 'すりー');
   s = s.replace(/[\s、。]+/g, '');
   return s;
 }
@@ -2642,8 +2649,8 @@ function handleVoiceCommand(rawText) {
     else voiceStatus(heard + '記録しませんでした');
     return;
   }
-  /* 得点：「4番 2点」 */
-  m = s.match(/(\d+)番[^\d]*(\d+)点/);
+  /* 得点：「4番 2点」「4番 2ポイント」 */
+  m = s.match(/(\d+)番[^\d]*(\d+)(点|ポイント|ポインツ)/);
   if (m) {
     var pts = Number(m[2]);
     if (pts < 1 || pts > 3) { voiceStatus(heard + '解釈できませんでした'); return; }
@@ -2654,6 +2661,24 @@ function handleVoiceCommand(rawText) {
     var pi = findPlayerIdxByNo(voiceTeam, Number(m[1]));
     if (pi < 0) { voiceStatus(heard + m[1] + '番の選手が登録されていません'); return; }
     if (addScore(voiceTeam, pi, pts)) voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番に' + pts + '点を追加しました');
+    else voiceStatus(heard + '記録しませんでした');
+    return;
+  }
+  /* 得点（数字だけの言い方）：「4番2」→2点、「4番1」→1点。
+     音声認識が「ツー」を数字の「2」に変換して返すことがあり、その場合は
+     「点」が付かない。番号＋数字だけの発話に限って得点として受け付ける
+     （「ファウル」等の語がある発話は上の分岐が先に処理する） */
+  m = s.match(/^(\d+)番(\d+)(ポイント|ポインツ)?$/);
+  if (m) {
+    var bpts = Number(m[2]);
+    if (bpts < 1 || bpts > 3) { voiceStatus(heard + '解釈できませんでした'); return; }
+    if (bpts === 3 && !S.game.use3pt) {
+      voiceStatus(heard + '3ポイントは採用されていません（試合情報タブで有効にしてください）');
+      return;
+    }
+    var bi = findPlayerIdxByNo(voiceTeam, Number(m[1]));
+    if (bi < 0) { voiceStatus(heard + m[1] + '番の選手が登録されていません'); return; }
+    if (addScore(voiceTeam, bi, bpts)) voiceStatus(heard + teamLabel(voiceTeam) + ' ' + m[1] + '番に' + bpts + '点を追加しました');
     else voiceStatus(heard + '記録しませんでした');
     return;
   }
