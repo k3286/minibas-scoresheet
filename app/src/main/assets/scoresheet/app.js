@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-var APP_VERSION = '1.63';
+var APP_VERSION = '1.64';
 
 var STORE_KEY = 'minibas-scoresheet-v1';
 var PRACTICE_KEY = 'minibas-scoresheet-practice-v1';
@@ -1040,17 +1040,19 @@ function renderFix() {
     root.innerHTML = '<p class="hint">まだ記録がありません。「記録」タブで得点やファウルを入力すると、ここに一覧が出て修正できるようになります。</p>';
     return;
   }
-  root.innerHTML = items.map(function (it) {
+  root.innerHTML = items.map(function (it, pos) {
     var k = qKey(it.q);
     var cls = (k === '1' || k === '3') ? 'qred' : 'qblue';
     return '<button type="button" class="fix-item fix-' + String(it.team).toLowerCase() + '" data-kind="' + it.kind + '" data-i="' + it.i +
-      '" data-team="' + it.team + '" data-q="' + esc(it.q) + '" data-ai="' + it.ai + '">' +
+      '" data-team="' + it.team + '" data-q="' + esc(it.q) + '" data-ai="' + it.ai + '" data-pos="' + pos + '">' +
+      '<span class="fix-drag">≡</span>' +
       '<span class="fix-q ' + cls + '">' + qLabel(it.q) + '</span>' +
       '<span class="fix-text">' + esc(fixItemText(it)) + '</span>' +
       '<span class="fix-arrow">›</span></button>';
   }).join('');
 }
 document.getElementById('fixList').addEventListener('click', function (e) {
+  if (suppressFixClick) { suppressFixClick = false; return; }
   var b = e.target.closest('.fix-item');
   if (!b) return;
   openEdit({
@@ -1061,6 +1063,90 @@ document.getElementById('fixList').addEventListener('click', function (e) {
     ai: Number(b.dataset.ai)
   });
 });
+
+/* 修正画面のドラッグ並び替え：seq（入力順の通し番号）を新しい並びに振り直す。
+   得点・ファウル・タイムアウトはすべて seq で一元的に並ぶので、これで全体の順番が変わる。 */
+var suppressFixClick = false;
+function moveFixItem(fromPos, toPos) {
+  var items = fixItems();
+  if (fromPos === toPos || fromPos < 0 || toPos < 0 || fromPos >= items.length || toPos >= items.length) return;
+  var seqs = items.map(function (it) { return it.seq; });
+  var moved = items.splice(fromPos, 1)[0];
+  items.splice(toPos, 0, moved);
+  items.forEach(function (it, k) {
+    var s = seqs[k];
+    if (it.kind === 'score') S.events[it.i].seq = s;
+    else if (it.kind === 'foul') S.fouls[it.i].seq = s;
+    else if (S.toSeq && S.toSeq[it.team] && S.toSeq[it.team][it.q]) S.toSeq[it.team][it.q][it.ai] = s;
+  });
+  save(); renderFix(); renderRecord(); renderSheet();
+}
+(function () {
+  var list = document.getElementById('fixList');
+  if (!list) return;
+  var dragEl = null, startPos = -1, curPos = -1, startY = 0;
+  function rows() { return Array.prototype.slice.call(list.querySelectorAll('.fix-item')); }
+  function onMove(e) {
+    if (!dragEl) return;
+    var y = e.clientY;
+    var rs = rows();
+    var idx = rs.indexOf(dragEl);
+    while (idx > 0) {
+      var prev = rs[idx - 1];
+      var pb = prev.getBoundingClientRect();
+      if (y < pb.top + pb.height / 2) {
+        list.insertBefore(dragEl, prev);
+        startY -= prev.offsetHeight + 8;
+        rs = rows(); idx = rs.indexOf(dragEl); curPos = idx;
+      } else break;
+    }
+    rs = rows(); idx = rs.indexOf(dragEl);
+    while (idx >= 0 && idx < rs.length - 1) {
+      var next = rs[idx + 1];
+      var nb = next.getBoundingClientRect();
+      if (y > nb.top + nb.height / 2) {
+        list.insertBefore(next, dragEl);
+        startY += next.offsetHeight + 8;
+        rs = rows(); idx = rs.indexOf(dragEl); curPos = idx;
+      } else break;
+    }
+    dragEl.style.transform = 'translateY(' + (y - startY) + 'px)';
+  }
+  function cleanup() {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onCancel);
+    if (dragEl) { dragEl.classList.remove('dragging'); dragEl.style.transform = ''; }
+  }
+  function onUp() {
+    var f = startPos, t = curPos, el = dragEl;
+    cleanup();
+    dragEl = null;
+    setTimeout(function () { suppressFixClick = false; }, 350);
+    if (el && t !== f) moveFixItem(f, t);
+  }
+  function onCancel() {
+    cleanup();
+    dragEl = null;
+    suppressFixClick = false;
+    renderFix();
+  }
+  list.addEventListener('pointerdown', function (e) {
+    var h = e.target.closest('.fix-drag');
+    if (!h) return;
+    var item = h.closest('.fix-item');
+    if (!item) return;
+    e.preventDefault();
+    suppressFixClick = true;
+    dragEl = item;
+    startPos = curPos = Number(item.dataset.pos);
+    startY = e.clientY;
+    dragEl.classList.add('dragging');
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onCancel);
+  });
+})();
 
 /* ---------- 修正モーダル ---------- */
 var editTarget = null;
