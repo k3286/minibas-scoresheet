@@ -41,7 +41,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * ミニバス スコアシート
+ * バスケ スコアシート
  *
  * 単一 Activity + WebView の構成です。
  * スコアシート本体（入力 UI・公式シート描画・印刷用 CSS）は
@@ -215,12 +215,12 @@ class MainActivity : Activity() {
             (context as? Activity)?.runOnUiThread {
                 val printManager =
                     context.getSystemService(Context.PRINT_SERVICE) as PrintManager
-                val adapter = webView.createPrintDocumentAdapter("ミニバス スコアシート")
+                val adapter = webView.createPrintDocumentAdapter("バスケ スコアシート")
                 val attributes = PrintAttributes.Builder()
                     .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
                     .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
                     .build()
-                printManager.print("ミニバス スコアシート", adapter, attributes)
+                printManager.print("バスケ スコアシート", adapter, attributes)
             }
         }
     }
